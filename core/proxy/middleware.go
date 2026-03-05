@@ -3,10 +3,12 @@ package proxy
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/Keshav76315/turboSH/config"
+	cachesystem "github.com/Keshav76315/turboSH/core/cache"
 	"github.com/Keshav76315/turboSH/core/scheduler"
 	"github.com/Keshav76315/turboSH/core/security"
 )
@@ -16,6 +18,8 @@ type Components struct {
 	Scheduler    *scheduler.Scheduler
 	RateLimiter  *security.RateLimiter
 	TrafficRules *security.TrafficRules
+	Cache        *cachesystem.CacheMiddleware
+	CacheStop    chan struct{} // stop channel for the TTL manager
 }
 
 // NewComponents creates all middleware components from the given config.
@@ -42,10 +46,17 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 		return nil, err
 	}
 
+	// Create cache
+	lruCache := cachesystem.NewLRUCache(cfg.CacheCapacity, cfg.CacheMaxMemory)
+	stop := lruCache.StartTTLManager(30 * time.Second)
+	cacheMiddleware := cachesystem.NewCacheMiddleware(lruCache, cfg.CacheTTL, 1<<20)
+
 	return &Components{
 		Scheduler:    scheduler.New(cfg.MaxConcurrent, cfg.QueueTimeout),
 		RateLimiter:  rateLimiter,
 		TrafficRules: trafficRules,
+		Cache:        cacheMiddleware,
+		CacheStop:    stop,
 	}, nil
 }
 
@@ -74,8 +85,12 @@ func SetupMiddleware(router *gin.Engine, components *Components) {
 		router.Use(components.TrafficRules.Middleware())
 	}
 
-	// Future middleware slots (added in later EPICs):
 	// 4. Cache layer (EPIC 3 — Anzal)
+	if components.Cache != nil {
+		router.Use(components.Cache.Middleware())
+	}
+
+	// Future middleware slots (added in later EPICs):
 	// 5. Traffic logger (EPIC 4 — Anzal)
 	// 6. Feature extraction + ML inference (EPIC 7)
 	// 7. Decision engine (EPIC 7 — currently using PassthroughPolicy)

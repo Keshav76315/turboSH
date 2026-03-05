@@ -34,8 +34,9 @@ type Config struct {
 	RateLimitThreshold float64 // Anomaly score above this → RATE_LIMIT
 
 	// Cache settings
-	CacheCapacity int           // Max number of cached responses
-	CacheTTL      time.Duration // Default TTL for cached responses
+	CacheCapacity  int           // Max number of cached responses
+	CacheTTL       time.Duration // Default TTL for cached responses
+	CacheMaxMemory int           // Max total memory for cached entries (bytes)
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -66,8 +67,9 @@ func Load() *Config {
 		RateLimitThreshold: envOrDefaultFloat("TURBOSH_RATE_LIMIT_THRESHOLD", 0.65),
 
 		// Cache
-		CacheCapacity: envOrDefaultInt("TURBOSH_CACHE_CAPACITY", 1000),
-		CacheTTL:      envOrDefaultDuration("TURBOSH_CACHE_TTL", 5*time.Minute),
+		CacheCapacity:  envOrDefaultInt("TURBOSH_CACHE_CAPACITY", 1000),
+		CacheTTL:       envOrDefaultDuration("TURBOSH_CACHE_TTL", 5*time.Minute),
+		CacheMaxMemory: envOrDefaultInt("TURBOSH_CACHE_MAX_MEMORY", 512*1024*1024), // 512 MB
 	}
 }
 
