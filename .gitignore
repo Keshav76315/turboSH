@@ -1,1 +1,43 @@
-MY_PLAN.md
+# ============================================
+# turboSH — .gitignore
+# ============================================
+
+# --- Project-specific ---
+KEVIN.md
+
+# --- Python ---
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.ipynb_checkpoints/
+
+# --- Go ---
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+vendor/
+
+# --- Models ---
+*.onnx
+*.pkl
+*.joblib
+
+# --- Environment ---
+.env
+.env.local
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- OS ---
+Thumbs.db
+.DS_Store
