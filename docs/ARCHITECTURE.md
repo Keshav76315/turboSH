@@ -19,7 +19,7 @@ The system is designed to run on commodity hardware (4 GB RAM, 2 CPU cores, no G
                     ┌──────────────────────────────────────────────────┐
                     │              turboSH Middleware                  │
                     │                                                  │
-  Client ──────►   │  Reverse Proxy                                   │
+  Client ──────►    │  Reverse Proxy                                   │
                     │       │                                          │
                     │       ▼                                          │
                     │  Scheduler / Rate Limiter                        │
