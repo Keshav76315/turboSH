@@ -9,7 +9,7 @@
 
 | Developer | Role                                          |
 | --------- | --------------------------------------------- |
-| Kevin     | Backend systems + ML engineering              |
+| Keshav     | Backend systems + ML engineering              |
 | Anzal     | Data pipeline + caching system + data science |
 
 ---
@@ -20,7 +20,7 @@
 
 ### STORY 1.1 — Repository Initialization
 
-**Owner:** Kevin
+**Owner:** Keshav
 
 **Tasks:**
 
@@ -55,7 +55,7 @@
 
 ### STORY 1.3 — Architecture Definition
 
-**Owner:** Kevin
+**Owner:** Keshav
 
 **Tasks:**
 
@@ -72,7 +72,7 @@
 ## EPIC 2 — Core Middleware System
 
 **Goal:** Build the middleware that handles incoming traffic.
-**Owner:** Kevin
+**Owner:** Keshav
 
 ### STORY 2.1 — Reverse Proxy Middleware
 
@@ -282,7 +282,7 @@ miss → forward request
 
 ## EPIC 6 — Machine Learning System
 
-**Owner:** Kevin
+**Owner:** Keshav
 **Goal:** Detect anomalous traffic patterns.
 
 ### STORY 6.1 — ML Model Training
@@ -327,7 +327,7 @@ miss → forward request
 
 ## EPIC 7 — ML Inference Integration
 
-**Owner:** Kevin
+**Owner:** Keshav
 
 ### STORY 7.1 — ML Inference Engine
 
@@ -385,7 +385,7 @@ miss → forward request
 
 ## EPIC 9 — Testing & Optimization
 
-**Owners:** Kevin + Anzal
+**Owners:** Keshav + Anzal
 
 ### STORY 9.1 — Load Testing
 
@@ -430,13 +430,13 @@ miss → forward request
 
 | System Component   | Owner |
 | ------------------ | ----- |
-| Reverse Proxy      | Kevin |
-| Scheduler          | Kevin |
-| Traffic Control    | Kevin |
-| Decision Engine    | Kevin |
-| ML Models          | Kevin |
-| ML Inference       | Kevin |
-| Monitoring         | Kevin |
+| Reverse Proxy      | Keshav |
+| Scheduler          | Keshav |
+| Traffic Control    | Keshav |
+| Decision Engine    | Keshav |
+| ML Models          | Keshav |
+| ML Inference       | Keshav |
+| Monitoring         | Keshav |
 | Cache System       | Anzal |
 | Traffic Logging    | Anzal |
 | Feature Extraction | Anzal |

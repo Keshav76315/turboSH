@@ -22,7 +22,7 @@ The system is designed to run on commodity hardware without GPUs.
 
 ```
 turboSH/
-├── core/                    ← Go: middleware components (Kevin)
+├── core/                    ← Go: middleware components (Keshav)
 │   ├── proxy/               Reverse proxy server
 │   ├── scheduler/           Request scheduling & rate limiting
 │   ├── cache/               LRU cache with TTL (Anzal)
@@ -32,11 +32,11 @@ turboSH/
 │   ├── logging/             Traffic log capture
 │   ├── feature_extraction/  Log → feature vectors
 │   └── dataset_builder/     Feature vectors → CSV datasets
-├── ml/                      ← Python: ML system (Kevin)
+├── ml/                      ← Python: ML system (Keshav)
 │   ├── training/            Model training scripts
 │   └── evaluation/          Model evaluation & reports
 ├── models/                  ← Trained model artifacts (.onnx)
-├── monitoring/              ← Go: Prometheus metrics (Kevin)
+├── monitoring/              ← Go: Prometheus metrics (Keshav)
 ├── datasets/                ← Generated CSV datasets (Anzal)
 ├── notebooks/               ← Jupyter notebooks (Anzal)
 └── docs/                    ← Shared documentation
@@ -48,7 +48,7 @@ turboSH/
 
 | Developer | Owns                                                  | Does Not Modify                                              |
 | --------- | ----------------------------------------------------- | ------------------------------------------------------------ |
-| Kevin     | `core/`, `ml/`, `models/`, `monitoring/`              | `pipeline/`, `datasets/`, `notebooks/`                       |
+| Keshav     | `core/`, `ml/`, `models/`, `monitoring/`              | `pipeline/`, `datasets/`, `notebooks/`                       |
 | Anzal     | `pipeline/`, `datasets/`, `notebooks/`, `core/cache/` | `core/{proxy,scheduler,security,decision}`, `ml/`, `models/` |
 
 ---
@@ -90,7 +90,7 @@ turboSH/
 | `docs/PROGRESS.md`     | Development history log                         |
 | `docs/DATA_SCHEMA.md`  | Traffic log and feature vector schemas          |
 | `docs/API.md`          | Internal API definitions                        |
-| `docs/KEVIN.md`        | Kevin's detailed development guide (gitignored) |
+| `docs/Keshav.md`        | Keshav's detailed development guide (gitignored) |
 | `requirements.txt`     | Python dependencies                             |
 | `go.mod`               | Go module definition                            |
 

@@ -57,7 +57,7 @@ The entry point for all client traffic.
 | --------- | ---------------------------------------------------- |
 | Language  | Go                                                   |
 | Libraries | `net/http`, `httputil.ReverseProxy`, `gin-gonic/gin` |
-| Owner     | Kevin                                                |
+| Owner     | Keshav                                                |
 
 **Responsibilities:**
 
@@ -80,7 +80,7 @@ Controls request flow to prevent backend overload.
 | Aspect   | Detail |
 | -------- | ------ |
 | Language | Go     |
-| Owner    | Kevin  |
+| Owner    | Keshav  |
 
 **Algorithms:**
 
@@ -188,7 +188,7 @@ Loads trained anomaly detection models and scores incoming traffic.
 | Inference      | ONNX Runtime (Go or Python FastAPI) |
 | Model Format   | ONNX                                |
 | Model Location | `models/anomaly_model.onnx`         |
-| Owner          | Kevin                               |
+| Owner          | Keshav                               |
 
 **Models:**
 
@@ -219,7 +219,7 @@ Translates ML predictions into concrete system actions.
 | Aspect   | Detail |
 | -------- | ------ |
 | Language | Go     |
-| Owner    | Kevin  |
+| Owner    | Keshav  |
 
 **Policy Rules:**
 
@@ -245,7 +245,7 @@ System observability via metrics and dashboards.
 | Language | Go                   |
 | Stack    | Prometheus + Grafana |
 | Endpoint | `/metrics`           |
-| Owner    | Kevin                |
+| Owner    | Keshav                |
 
 **Metrics:**
 
@@ -327,7 +327,7 @@ System observability via metrics and dashboards.
 ```
 turboSH/
 │
-├── core/                    ← Kevin
+├── core/                    ← Keshav
 │   ├── proxy/               │  Reverse proxy server
 │   ├── scheduler/           │  Request scheduling & rate limiting
 │   ├── cache/               │  LRU cache (Anzal)
@@ -339,12 +339,12 @@ turboSH/
 │   ├── feature_extraction/  │  Log → feature vectors
 │   └── dataset_builder/     │  Feature vectors → CSV datasets
 │
-├── ml/                      ← Kevin
+├── ml/                      ← Keshav
 │   ├── training/            │  Model training scripts
 │   └── evaluation/          │  Model evaluation & reports
 │
-├── models/                  ← Kevin (generated artifacts)
-├── monitoring/              ← Kevin
+├── models/                  ← Keshav (generated artifacts)
+├── monitoring/              ← Keshav
 ├── datasets/                ← Anzal (generated artifacts)
 ├── notebooks/               ← Anzal
 └── docs/                    ← Shared
@@ -354,7 +354,7 @@ turboSH/
 
 ## 7. Interface Contracts
 
-Components communicate through well‑defined interfaces. This ensures Kevin and Anzal can develop independently.
+Components communicate through well‑defined interfaces. This ensures Keshav and Anzal can develop independently.
 
 ### 7.1 Traffic Logger → Feature Extraction
 

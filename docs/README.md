@@ -87,7 +87,7 @@ pip install -r requirements.txt
 
 | Developer | Role                                          |
 | --------- | --------------------------------------------- |
-| Kevin     | Backend systems + ML engineering              |
+| Keshav     | Backend systems + ML engineering              |
 | Anzal     | Data pipeline + caching system + data science |
 
 ---
