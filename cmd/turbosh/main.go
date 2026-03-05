@@ -6,6 +6,7 @@ package main
 
 import (
 	"log"
+	"net/url"
 
 	"github.com/gin-gonic/gin"
 
@@ -18,7 +19,11 @@ func main() {
 	cfg := config.Load()
 
 	log.Println("=== turboSH Middleware ===")
-	log.Printf("Backend:  %s", cfg.BackendURL)
+	if parsedURL, err := url.Parse(cfg.BackendURL); err == nil {
+		log.Printf("Backend:  %s://%s", parsedURL.Scheme, parsedURL.Host)
+	} else {
+		log.Printf("Backend:  [redacted/invalid]")
+	}
 	log.Printf("Listen:   %s", cfg.ListenPort)
 	log.Printf("Max concurrent: %d", cfg.MaxConcurrent)
 	log.Printf("Rate limit: %d tokens, %.1f/s refill", cfg.RateLimitCapacity, cfg.RateLimitRate)
@@ -33,7 +38,10 @@ func main() {
 	router := gin.Default()
 
 	// Setup middleware pipeline
-	components := proxy.NewComponents(cfg)
+	components, err := proxy.NewComponents(cfg)
+	if err != nil {
+		log.Fatalf("Failed to initialize middleware components: %v", err)
+	}
 	proxy.SetupMiddleware(router, components)
 
 	// Catch-all route — forward everything to the backend

@@ -1,6 +1,8 @@
 // Package decision implements the decision engine that translates anomaly scores into actions.
 package decision
 
+import "fmt"
+
 // Action represents the action to take based on an anomaly score.
 type Action int
 
@@ -45,11 +47,20 @@ type ThresholdPolicy struct {
 
 // NewThresholdPolicy creates a new threshold-based policy.
 // Default: block > 0.85, rate_limit > 0.65, allow otherwise.
-func NewThresholdPolicy(blockThreshold, rateLimitThreshold float64) *ThresholdPolicy {
+func NewThresholdPolicy(blockThreshold, rateLimitThreshold float64) (*ThresholdPolicy, error) {
+	if blockThreshold == 0 {
+		blockThreshold = 0.85
+	}
+	if rateLimitThreshold == 0 {
+		rateLimitThreshold = 0.65
+	}
+	if rateLimitThreshold >= blockThreshold {
+		return nil, fmt.Errorf("rateLimitThreshold (%f) must be less than blockThreshold (%f)", rateLimitThreshold, blockThreshold)
+	}
 	return &ThresholdPolicy{
 		BlockThreshold:     blockThreshold,
 		RateLimitThreshold: rateLimitThreshold,
-	}
+	}, nil
 }
 
 // Evaluate takes a prediction and returns the appropriate action.

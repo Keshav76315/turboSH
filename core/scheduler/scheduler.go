@@ -13,30 +13,34 @@ import (
 type Scheduler struct {
 	semaphore chan struct{} // Buffered channel acting as a semaphore
 	timeout   time.Duration
-	queue     *PriorityQueue
 }
 
 // New creates a new Scheduler with the given concurrency limit and queue timeout.
 func New(maxConcurrent int, queueTimeout time.Duration) *Scheduler {
+	if maxConcurrent <= 0 {
+		maxConcurrent = 1
+	}
 	return &Scheduler{
 		semaphore: make(chan struct{}, maxConcurrent),
 		timeout:   queueTimeout,
-		queue:     NewPriorityQueue(),
 	}
 }
 
 // Middleware returns a Gin middleware that enforces concurrency limits.
-// If the scheduler is at capacity and the timeout expires, returns 503.
 func (s *Scheduler) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		timer := time.NewTimer(s.timeout)
 		// Try to acquire a slot within the timeout
 		select {
 		case s.semaphore <- struct{}{}:
+			if !timer.Stop() {
+				<-timer.C
+			}
 			// Got a slot — proceed with the request
 			defer func() { <-s.semaphore }() // Release slot when done
 			c.Next()
 
-		case <-time.After(s.timeout):
+		case <-timer.C:
 			// Timed out waiting for a slot
 			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
 				"error":   "service_unavailable",
@@ -44,11 +48,6 @@ func (s *Scheduler) Middleware() gin.HandlerFunc {
 			})
 		}
 	}
-}
-
-// QueueSize returns the current number of items waiting in the priority queue.
-func (s *Scheduler) QueueSize() int {
-	return s.queue.Size()
 }
 
 // ActiveCount returns the number of currently active requests.

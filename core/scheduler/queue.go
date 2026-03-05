@@ -100,7 +100,9 @@ func (pq *PriorityQueue) Dequeue() *Item {
 	if pq.Len() == 0 {
 		return nil
 	}
-	return heap.Pop(pq).(*Item)
+	item := heap.Pop(pq).(*Item)
+	close(item.Ready)
+	return item
 }
 
 // Size returns the current number of items in the queue (thread-safe).

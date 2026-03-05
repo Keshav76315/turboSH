@@ -40,7 +40,7 @@ request → cache lookup → hit → return cached response
 ## Usage
 
 ```go
-cache := cachesystem.NewLRUCache(1000) // capacity of 1000 entries
+cache := cache.NewLRUCache(1000) // capacity of 1000 entries
 
 // Start background TTL cleanup (every 30 seconds)
 stop := cache.StartTTLManager(30 * time.Second)

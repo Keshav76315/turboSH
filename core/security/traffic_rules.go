@@ -2,6 +2,7 @@
 package security
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -31,7 +32,20 @@ type TrafficRules struct {
 }
 
 // NewTrafficRules creates a new TrafficRules instance.
-func NewTrafficRules(burstThreshold int, burstWindow time.Duration, endpointThreshold int, endpointWindow time.Duration) *TrafficRules {
+func NewTrafficRules(burstThreshold int, burstWindow time.Duration, endpointThreshold int, endpointWindow time.Duration) (*TrafficRules, error) {
+	if burstThreshold <= 0 {
+		return nil, fmt.Errorf("burstThreshold must be positive, got %d", burstThreshold)
+	}
+	if burstWindow <= 0 {
+		return nil, fmt.Errorf("burstWindow must be positive, got %v", burstWindow)
+	}
+	if endpointThreshold <= 0 {
+		return nil, fmt.Errorf("endpointThreshold must be positive, got %d", endpointThreshold)
+	}
+	if endpointWindow <= 0 {
+		return nil, fmt.Errorf("endpointWindow must be positive, got %v", endpointWindow)
+	}
+
 	return &TrafficRules{
 		burstTracker:      make(map[string]*requestRecord),
 		burstThreshold:    burstThreshold,
@@ -39,7 +53,7 @@ func NewTrafficRules(burstThreshold int, burstWindow time.Duration, endpointThre
 		endpointTracker:   make(map[string]*requestRecord),
 		endpointThreshold: endpointThreshold,
 		endpointWindow:    endpointWindow,
-	}
+	}, nil
 }
 
 // recordRequest adds a timestamp to the tracker and prunes old entries outside the window.

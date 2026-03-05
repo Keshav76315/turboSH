@@ -24,6 +24,9 @@ type LRUCache struct {
 
 // NewLRUCache creates a new LRU cache with the given capacity.
 func NewLRUCache(capacity int) *LRUCache {
+	if capacity <= 0 {
+		capacity = 1
+	}
 	return &LRUCache{
 		capacity: capacity,
 		items:    make(map[string]*list.Element),
@@ -43,17 +46,25 @@ func (c *LRUCache) Get(key string) (*CachedResponse, bool) {
 		return nil, false
 	}
 
-	entry := element.Value.(*entry)
+	ent := element.Value.(*entry)
 
 	// Check if the entry has expired
-	if !entry.value.Expiry.IsZero() && time.Now().After(entry.value.Expiry) {
+	if !ent.value.Expiry.IsZero() && time.Now().After(ent.value.Expiry) {
 		c.mu.RUnlock()
 		// Expired — need write lock to remove it
 		c.mu.Lock()
-		// Re-check after acquiring write lock (another goroutine may have removed it)
-		if element, found := c.items[key]; found {
-			c.order.Remove(element)
-			delete(c.items, key)
+		// Re-check after acquiring write lock (another goroutine may have removed or updated it)
+		if elem2, found2 := c.items[key]; found2 {
+			ent2 := elem2.Value.(*entry)
+			if !ent2.value.Expiry.IsZero() && time.Now().After(ent2.value.Expiry) {
+				c.order.Remove(elem2)
+				delete(c.items, key)
+				c.mu.Unlock()
+				return nil, false
+			}
+			// It was updated while waiting for the lock, so return the valid entry
+			c.mu.Unlock()
+			return ent2.value, true
 		}
 		c.mu.Unlock()
 		return nil, false
@@ -62,13 +73,16 @@ func (c *LRUCache) Get(key string) (*CachedResponse, bool) {
 
 	// Move to front — needs write lock
 	c.mu.Lock()
-	// Re-check the element is still in the list
-	if _, found := c.items[key]; found {
-		c.order.MoveToFront(element)
+	// Re-check the element is still in the list and get a fresh reference
+	if elemFresh, foundFresh := c.items[key]; foundFresh {
+		c.order.MoveToFront(elemFresh)
+		freshEnt := elemFresh.Value.(*entry)
+		c.mu.Unlock()
+		return freshEnt.value, true
 	}
 	c.mu.Unlock()
 
-	return entry.value, true
+	return nil, false
 }
 
 // Set stores a response in the cache with a TTL.
@@ -79,22 +93,23 @@ func (c *LRUCache) Set(key string, value *CachedResponse, ttl time.Duration) err
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	valCopy := *value
 	// Compute expiry from TTL
 	if ttl > 0 {
-		value.Expiry = time.Now().Add(ttl)
+		valCopy.Expiry = time.Now().Add(ttl)
 	} else {
-		value.Expiry = time.Time{} // zero = never expires
+		valCopy.Expiry = time.Time{} // zero = never expires
 	}
 
 	// Update existing entry
 	if element, found := c.items[key]; found {
 		c.order.MoveToFront(element)
-		element.Value.(*entry).value = value
+		element.Value.(*entry).value = &valCopy
 		return nil
 	}
 
 	// Insert new entry
-	element := c.order.PushFront(&entry{key, value})
+	element := c.order.PushFront(&entry{key, &valCopy})
 	c.items[key] = element
 
 	// Evict if over capacity
@@ -124,7 +139,7 @@ func (c *LRUCache) evict() {
 	lastElement := c.order.Back()
 	if lastElement != nil {
 		c.order.Remove(lastElement)
-		entry := lastElement.Value.(*entry)
-		delete(c.items, entry.key)
+		ent := lastElement.Value.(*entry)
+		delete(c.items, ent.key)
 	}
 }

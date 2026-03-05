@@ -2,6 +2,7 @@
 package security
 
 import (
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -27,12 +28,18 @@ type RateLimiter struct {
 
 // NewRateLimiter creates a new per-IP rate limiter.
 // capacity is the max burst size, rate is tokens refilled per second.
-func NewRateLimiter(capacity int, rate float64) *RateLimiter {
+func NewRateLimiter(capacity int, rate float64) (*RateLimiter, error) {
+	if capacity <= 0 {
+		return nil, fmt.Errorf("capacity must be positive, got %d", capacity)
+	}
+	if rate <= 0 {
+		return nil, fmt.Errorf("rate must be positive, got %f", rate)
+	}
 	return &RateLimiter{
 		buckets:  make(map[string]*TokenBucket),
 		capacity: capacity,
 		rate:     rate,
-	}
+	}, nil
 }
 
 // Allow checks if a request from the given IP is allowed.
