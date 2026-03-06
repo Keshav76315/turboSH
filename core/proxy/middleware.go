@@ -100,7 +100,7 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 //
 // Request flow:
 //
-//	Client → Scheduler → RateLimiter → TrafficRules → [future: Cache → Logger → ML] → Proxy
+//	Client → Scheduler → RateLimiter → TrafficRules → ML Inference → Cache → Logger → Proxy
 func SetupMiddleware(router *gin.Engine, components *Components) {
 	if components == nil {
 		return
@@ -121,18 +121,19 @@ func SetupMiddleware(router *gin.Engine, components *Components) {
 		router.Use(components.TrafficRules.Middleware())
 	}
 
-	// 4. Cache layer (EPIC 3 — Anzal)
+	// 4. Feature Extraction + ML Inference + Decision Engine (EPIC 7)
+	// MUST run before cache so the ML engine sees all requests, even repetitive ones.
+	if components.MLProtection != nil {
+		router.Use(components.MLProtection.Middleware())
+	}
+
+	// 5. Cache layer (EPIC 3 — Anzal)
 	if components.Cache != nil {
 		router.Use(components.Cache.Middleware())
 	}
 
-	// 5. Traffic logger (EPIC 4 — Anzal)
+	// 6. Traffic logger (EPIC 4 — Anzal)
 	if components.TrafficLogger != nil {
 		router.Use(components.TrafficLogger.Middleware())
-	}
-
-	// 6. Feature Extraction + ML Inference + Decision Engine (EPIC 7)
-	if components.MLProtection != nil {
-		router.Use(components.MLProtection.Middleware())
 	}
 }

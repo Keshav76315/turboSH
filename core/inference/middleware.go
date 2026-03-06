@@ -179,7 +179,7 @@ func (mlp *MLProtection) Middleware() gin.HandlerFunc {
 			})
 			return
 		case decision.ActionAllow:
-			// log.Printf("[ML Protection] ✅ ALLOW %s", redactIP(ip))
+			log.Printf("[ML Protection] ✅ ALLOW %s", redactIP(ip))
 			c.Next()
 		default:
 			log.Printf("[ML Protection] ❓ UNKNOWN ACTION %s for %s (Score: %.2f) - Defaulting to ALLOW", action, redactIP(ip), score)

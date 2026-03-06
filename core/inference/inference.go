@@ -109,7 +109,7 @@ func (e *Engine) Predict(features RequestFeatures) (float64, error) {
 
 	// The output of IsolationForest in skl2onnx is an array of Int64 (-1 or 1)
 	outputData := make([]int64, 1)
-	outputShape := ort.NewShape(1)
+	outputShape := ort.NewShape(1, 1)
 
 	outputTensor, err := ort.NewTensor(outputShape, outputData)
 	if err != nil {
