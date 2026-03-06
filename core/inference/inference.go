@@ -22,7 +22,7 @@ var SharedLibraryPath string
 // ONNX Runtime Shared Library (.so, .dll, or .dylib).
 func Initialize(sharedLibPath string) error {
 	if ort.IsInitialized() {
-		log.Println("[inference] ONNX Environment already initialized")
+		log.Printf("[inference] ONNX Environment already initialized (requested: %s, active: %s)", sharedLibPath, SharedLibraryPath)
 		return nil
 	}
 

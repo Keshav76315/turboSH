@@ -5,12 +5,23 @@ import (
 	"encoding/hex"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/Keshav76315/turboSH/core/decision"
 	"github.com/gin-gonic/gin"
 )
+
+var ipSalt string
+
+func init() {
+	ipSalt = os.Getenv("TURBOSH_IP_SALT")
+	if ipSalt == "" {
+		ipSalt = "turboSH_default_salt"
+		log.Println("[inference] TURBOSH_IP_SALT not set, using default salt for IP redaction")
+	}
+}
 
 // MLProtection encapsulates the inference engine, decision engine,
 // and moving windows needed to compute live features.
@@ -31,7 +42,7 @@ type MLProtection struct {
 
 // redactIP hashes the IP address to protect raw PII in the logs.
 func redactIP(ip string) string {
-	hash := sha256.Sum256([]byte(ip + "turboSH_salt"))
+	hash := sha256.Sum256([]byte(ip + ipSalt))
 	return hex.EncodeToString(hash[:8])
 }
 
