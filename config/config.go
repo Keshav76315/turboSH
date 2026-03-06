@@ -37,6 +37,10 @@ type Config struct {
 	CacheCapacity  int           // Max number of cached responses
 	CacheTTL       time.Duration // Default TTL for cached responses
 	CacheMaxMemory int           // Max total memory for cached entries (bytes)
+
+	// Traffic logging settings
+	LogFilePath   string // Path to traffic log file (JSON Lines)
+	LogBufferSize int    // Write buffer size in bytes
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -70,6 +74,10 @@ func Load() *Config {
 		CacheCapacity:  envOrDefaultInt("TURBOSH_CACHE_CAPACITY", 1000),
 		CacheTTL:       envOrDefaultDuration("TURBOSH_CACHE_TTL", 5*time.Minute),
 		CacheMaxMemory: envOrDefaultInt("TURBOSH_CACHE_MAX_MEMORY", 512*1024*1024), // 512 MB
+
+		// Traffic logging
+		LogFilePath:   envOrDefault("TURBOSH_LOG_FILE_PATH", "logs/traffic.jsonl"),
+		LogBufferSize: envOrDefaultInt("TURBOSH_LOG_BUFFER_SIZE", 4096),
 	}
 }
 

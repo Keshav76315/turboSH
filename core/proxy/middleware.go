@@ -11,15 +11,17 @@ import (
 	cachesystem "github.com/Keshav76315/turboSH/core/cache"
 	"github.com/Keshav76315/turboSH/core/scheduler"
 	"github.com/Keshav76315/turboSH/core/security"
+	"github.com/Keshav76315/turboSH/pipeline/logging"
 )
 
 // Components holds all the middleware components for the pipeline.
 type Components struct {
-	Scheduler    *scheduler.Scheduler
-	RateLimiter  *security.RateLimiter
-	TrafficRules *security.TrafficRules
-	Cache        *cachesystem.CacheMiddleware
-	CacheStop    chan struct{} // stop channel for the TTL manager
+	Scheduler     *scheduler.Scheduler
+	RateLimiter   *security.RateLimiter
+	TrafficRules  *security.TrafficRules
+	Cache         *cachesystem.CacheMiddleware
+	CacheStop     chan struct{} // stop channel for the TTL manager
+	TrafficLogger *logging.TrafficLogger
 }
 
 // NewComponents creates all middleware components from the given config.
@@ -51,12 +53,19 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 	stop := lruCache.StartTTLManager(30 * time.Second)
 	cacheMiddleware := cachesystem.NewCacheMiddleware(lruCache, cfg.CacheTTL, 1<<20)
 
+	// Create traffic logger
+	trafficLogger, err := logging.NewTrafficLogger(cfg.LogFilePath, cfg.LogBufferSize)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create traffic logger: %w", err)
+	}
+
 	return &Components{
-		Scheduler:    scheduler.New(cfg.MaxConcurrent, cfg.QueueTimeout),
-		RateLimiter:  rateLimiter,
-		TrafficRules: trafficRules,
-		Cache:        cacheMiddleware,
-		CacheStop:    stop,
+		Scheduler:     scheduler.New(cfg.MaxConcurrent, cfg.QueueTimeout),
+		RateLimiter:   rateLimiter,
+		TrafficRules:  trafficRules,
+		Cache:         cacheMiddleware,
+		CacheStop:     stop,
+		TrafficLogger: trafficLogger,
 	}, nil
 }
 
@@ -90,8 +99,12 @@ func SetupMiddleware(router *gin.Engine, components *Components) {
 		router.Use(components.Cache.Middleware())
 	}
 
-	// Future middleware slots (added in later EPICs):
 	// 5. Traffic logger (EPIC 4 — Anzal)
+	if components.TrafficLogger != nil {
+		router.Use(components.TrafficLogger.Middleware())
+	}
+
+	// Future middleware slots (added in later EPICs):
 	// 6. Feature extraction + ML inference (EPIC 7)
 	// 7. Decision engine (EPIC 7 — currently using PassthroughPolicy)
 }

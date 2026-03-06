@@ -1,0 +1,3 @@
+{"timestamp":"2026-03-06T17:19:47Z","ip_hash":"eff8e7ca506627fe","endpoint":"/health","method":"GET","status_code":200,"response_time":0.014542000000000001,"request_size":0}
+{"timestamp":"2026-03-06T17:19:47Z","ip_hash":"eff8e7ca506627fe","endpoint":"/products","method":"GET","status_code":200,"response_time":2001.195375,"request_size":0}
+{"timestamp":"2026-03-06T17:19:49Z","ip_hash":"eff8e7ca506627fe","endpoint":"/health","method":"POST","status_code":404,"response_time":0.000375,"request_size":0}

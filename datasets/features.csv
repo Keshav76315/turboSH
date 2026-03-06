@@ -1,0 +1,6 @@
+ip_hash,requests_per_ip_10s,requests_per_ip_60s,endpoint_entropy,latency_spike,error_rate,request_variance
+ede60db2cdb2f765,5,27,0.9962,0,0.0,7.6887
+805ebf201c523f69,2,13,0.9563,0,0.0,30.0
+838c4c2573848f58,3,19,0.7642,1,0.7222,10.4454
+6694f83c9f476da3,4,23,0.9799,0,0.5778,6.4625
+d876fc90398ef69c,4,22,0.9776,0,0.0,6.4385

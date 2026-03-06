@@ -1,3 +1,6 @@
 requests_per_ip_10s,requests_per_ip_60s,endpoint_entropy,latency_spike,error_rate,request_variance,label
+5,27,0.9962,0,0.0,7.6887,0
+2,13,0.9563,0,0.0,30.0,0
 3,19,0.7642,1,0.7222,10.4454,1
 4,23,0.9799,0,0.5778,6.4625,1
+4,22,0.9776,0,0.0,6.4385,0

@@ -15,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	cachesystem "github.com/Keshav76315/turboSH/core/cache"
+	"github.com/Keshav76315/turboSH/pipeline/logging"
 )
 
 func main() {
@@ -27,9 +28,17 @@ func main() {
 
 	cacheMiddleware := cachesystem.NewCacheMiddleware(cache, 5*time.Minute, 1<<20)
 
-	// ---------- 2. Create Gin router with cache middleware ----------
+	// ---------- 2. Create traffic logger ----------
+	trafficLogger, err := logging.NewTrafficLogger("logs/traffic.jsonl", 4096)
+	if err != nil {
+		log.Fatalf("failed to create traffic logger: %v", err)
+	}
+	defer trafficLogger.Close()
+
+	// ---------- 3. Create Gin router with middleware ----------
 	router := gin.Default()
 	router.Use(cacheMiddleware.Middleware())
+	router.Use(trafficLogger.Middleware())
 
 	// ---------- 3. Fake backend handlers ----------
 	router.GET("/products", func(c *gin.Context) {
@@ -52,7 +61,7 @@ func main() {
 	// ---------- 5. Start server ----------
 	addr := ":8080"
 	fmt.Println("===========================================")
-	fmt.Println("  turboSH Cache Demo (Metrics + Stampede)")
+	fmt.Println("  turboSH Demo (Cache + Traffic Logger)")
 	fmt.Println("===========================================")
 	fmt.Printf("  Listening on http://localhost%s\n", addr)
 	fmt.Println()
@@ -60,6 +69,8 @@ func main() {
 	fmt.Println("    GET /products      — slow backend (2s)")
 	fmt.Println("    GET /health        — fast")
 	fmt.Println("    GET /cache/stats   — view metrics")
+	fmt.Println()
+	fmt.Println("  Logs → logs/traffic.jsonl")
 	fmt.Println()
 	fmt.Println("  Press Ctrl+C to stop.")
 	fmt.Println("===========================================")
