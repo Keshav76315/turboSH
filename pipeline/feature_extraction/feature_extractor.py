@@ -28,6 +28,7 @@ import json
 import math
 import os
 import sys
+import statistics
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
@@ -40,7 +41,7 @@ from typing import Dict, List, Optional
 def read_traffic_logs(filepath: str) -> List[Dict]:
     """Read a JSON Lines file and return a list of log entries."""
     entries = []
-    with open(filepath, "r") as f:
+    with open(filepath, "r", encoding="utf-8") as f:
         for line_num, line in enumerate(f, start=1):
             line = line.strip()
             if not line:
@@ -126,11 +127,8 @@ def extract_features(entries: List[Dict], latency_baseline: float = None) -> Lis
 
     # ── Auto-compute latency baseline (median) ──
     if latency_baseline is None:
-        all_latencies = sorted(
-            e.get("response_time", 0) for e in entries
-        )
-        mid = len(all_latencies) // 2
-        latency_baseline = all_latencies[mid] if all_latencies else 100.0
+        all_latencies = [e.get("response_time", 0) for e in entries]
+        latency_baseline = statistics.median(all_latencies) if all_latencies else 100.0
 
     # Spike threshold: 3x baseline (or at least 500ms)
     spike_threshold = max(latency_baseline * 3, 500.0)
@@ -218,7 +216,7 @@ def write_features_csv(features: List[Dict], output_path: str):
     """Write feature rows to a CSV file."""
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
 
-    with open(output_path, "w", newline="") as f:
+    with open(output_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=FEATURE_COLUMNS)
         writer.writeheader()
         writer.writerows(features)

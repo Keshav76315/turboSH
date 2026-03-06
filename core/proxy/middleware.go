@@ -56,6 +56,7 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 	// Create traffic logger
 	trafficLogger, err := logging.NewTrafficLogger(cfg.LogFilePath, cfg.LogBufferSize)
 	if err != nil {
+		close(stop) // prevent TTL manager goroutine leak
 		return nil, fmt.Errorf("failed to create traffic logger: %w", err)
 	}
 

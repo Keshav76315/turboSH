@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -40,16 +41,19 @@ type TrafficLogger struct {
 	writer *bufio.Writer
 	file   *os.File
 	mu     sync.Mutex
+	closed bool // Added: indicates if the logger has been closed
 }
 
-// NewTrafficLogger creates a new traffic logger that writes to the given file path.  The file is created (or appended to) automatically. bufferSize controls the write buffer size in bytes (0 = default 4096).
+// NewTrafficLogger creates a new traffic logger that writes to the given file path.
+// The file is created (or appended to) automatically.
+// bufferSize controls the write buffer size in bytes (0 = default 4096).
 func NewTrafficLogger(filePath string, bufferSize int) (*TrafficLogger, error) {
 	if filePath == "" {
 		filePath = "logs/traffic.jsonl"
 	}
 
 	// Ensure the directory exists
-	if err := os.MkdirAll(dirOf(filePath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
 		return nil, fmt.Errorf("failed to create log directory: %w", err)
 	}
 
@@ -65,18 +69,11 @@ func NewTrafficLogger(filePath string, bufferSize int) (*TrafficLogger, error) {
 	return &TrafficLogger{
 		writer: bufio.NewWriterSize(file, bufferSize),
 		file:   file,
+		closed: false, // Explicitly set, though default is false
 	}, nil
 }
 
 // dirOf returns the directory portion of a file path.
-func dirOf(path string) string {
-	for i := len(path) - 1; i >= 0; i-- {
-		if path[i] == '/' || path[i] == '\\' {
-			return path[:i]
-		}
-	}
-	return "."
-}
 
 // ---------- middleware ----------
 
@@ -123,16 +120,18 @@ func (tl *TrafficLogger) writeEntry(entry TrafficLogEntry) {
 	tl.mu.Lock()
 	defer tl.mu.Unlock()
 
+	if tl.closed { // Do not write if the logger is closed
+		return
+	}
+
 	if _, err := tl.writer.Write(data); err != nil {
 		log.Printf("[traffic-logger] write error: %v", err)
 		return
 	}
-	tl.writer.WriteByte('\n')
-
-	// Flush immediately so logs survive signal interrupts
-	if err := tl.writer.Flush(); err != nil {
-		log.Printf("[traffic-logger] flush error: %v", err)
+	if err := tl.writer.WriteByte('\n'); err != nil { // Check error for WriteByte
+		log.Printf("[traffic-logger] newline write error: %v", err)
 	}
+	// Removed: tl.writer.Flush() - logs are now flushed periodically or on close
 }
 
 // Flush writes any buffered data to the underlying file.
@@ -140,12 +139,25 @@ func (tl *TrafficLogger) writeEntry(entry TrafficLogEntry) {
 func (tl *TrafficLogger) Flush() error {
 	tl.mu.Lock()
 	defer tl.mu.Unlock()
+	if tl.closed { // Do not flush if the logger is closed
+		return nil
+	}
 	return tl.writer.Flush()
 }
 
-// Close flushes and closes the log file.
+// Close flushes and closes the log file safely.
 func (tl *TrafficLogger) Close() error {
-	if err := tl.Flush(); err != nil {
+	tl.mu.Lock()
+	defer tl.mu.Unlock()
+
+	if tl.closed { // Prevent closing multiple times
+		return nil
+	}
+	tl.closed = true // Mark as closed
+
+	// Attempt to flush before closing. If flush fails, still try to close the file.
+	if err := tl.writer.Flush(); err != nil {
+		tl.file.Close() // attempt to close even if flush fails
 		return err
 	}
 	return tl.file.Close()
