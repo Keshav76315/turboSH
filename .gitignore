@@ -25,11 +25,6 @@ build/
 *.dylib
 vendor/
 
-# --- Models ---
-*.onnx
-*.pkl
-*.joblib
-
 # --- Environment ---
 .env
 .env.local

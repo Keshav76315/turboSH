@@ -53,6 +53,24 @@
   - Created demo server (`core/cache/cmd/cache_demo/main.go`) with `/cache/stats` endpoint
   - Added `golang.org/x/sync` dependency for `singleflight`
   - Added `CacheMaxMemory` config field (default 512 MB, env `TURBOSH_CACHE_MAX_MEMORY`)
+  - **EPIC 4 — Traffic Logging & Data Pipeline:**
+    - Implemented Traffic Logger middleware (`pipeline/logging/traffic_logger.go`)
+    - Created Feature Extractor (`pipeline/feature_extraction/feature_extractor.py`)
+    - Built Dataset Builder (`pipeline/dataset_builder/build_dataset.py`)
+  - **EPIC 5 — Data Analysis & Feature Engineering:**
+    - Performed Exploratory Data Analysis (`notebooks/traffic_analysis.ipynb`)
+    - Simulated Attacks (`datasets/attack_dataset.csv`)
+
+### 2026-03-07
+
+**Keshav**
+
+- **EPIC 6 — Machine Learning System:**
+  - Written Synthetic Data Generator (`ml/data/generate_synthetic_data.py`) which generated 22k rows of data.
+  - Developed and executed model training script via GridSearchCV (`ml/training/train_model.py`) over IsolationForest, One-Class SVM and LOF.
+  - Selected IsolationForest as winner (Validation F1 Score ~0.99).
+  - Authored evaluation report documenting the selection (`docs/model_evaluation_report.md`).
+  - Exported the finalized model via skl2onnx (`ml/export/export_onnx.py` to `models/anomaly_model.onnx`).
 
 ---
 
