@@ -3,12 +3,15 @@ package proxy
 
 import (
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/Keshav76315/turboSH/config"
 	cachesystem "github.com/Keshav76315/turboSH/core/cache"
+	"github.com/Keshav76315/turboSH/core/decision"
+	"github.com/Keshav76315/turboSH/core/inference"
 	"github.com/Keshav76315/turboSH/core/scheduler"
 	"github.com/Keshav76315/turboSH/core/security"
 	"github.com/Keshav76315/turboSH/pipeline/logging"
@@ -22,6 +25,7 @@ type Components struct {
 	Cache         *cachesystem.CacheMiddleware
 	CacheStop     chan struct{} // stop channel for the TTL manager
 	TrafficLogger *logging.TrafficLogger
+	MLProtection  *inference.MLProtection // EPIC 7: ONNX inference middleware
 }
 
 // NewComponents creates all middleware components from the given config.
@@ -60,6 +64,23 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 		return nil, fmt.Errorf("failed to create traffic logger: %w", err)
 	}
 
+	// EPIC 7: Try creating ML Inference Engine. Fail gracefully if ONNX library is missing.
+	var mlProtection *inference.MLProtection
+	err = inference.Initialize(cfg.ONNXSharedLibraryPath) // e.g., /usr/lib/onnxruntime.so
+	if err == nil {
+		modelPath := "models/anomaly_model.onnx"
+		engine, err := inference.NewEngine(modelPath)
+		if err == nil {
+			// ThresholdPolicy from EPIC 2
+			de, _ := decision.NewThresholdPolicy(0.85, 0.65)
+			mlProtection = inference.NewMLProtection(engine, de)
+		} else {
+			log.Printf("[setup] Could not start ML Engine: %v. Running in static-rule mode.", err)
+		}
+	} else {
+		log.Printf("[setup] ONNX Runtime not initialized: %v. Running in static-rule mode.", err)
+	}
+
 	return &Components{
 		Scheduler:     scheduler.New(cfg.MaxConcurrent, cfg.QueueTimeout),
 		RateLimiter:   rateLimiter,
@@ -67,6 +88,7 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 		Cache:         cacheMiddleware,
 		CacheStop:     stop,
 		TrafficLogger: trafficLogger,
+		MLProtection:  mlProtection,
 	}, nil
 }
 
@@ -105,7 +127,8 @@ func SetupMiddleware(router *gin.Engine, components *Components) {
 		router.Use(components.TrafficLogger.Middleware())
 	}
 
-	// Future middleware slots (added in later EPICs):
-	// 6. Feature extraction + ML inference (EPIC 7)
-	// 7. Decision engine (EPIC 7 — currently using PassthroughPolicy)
+	// 6. Feature Extraction + ML Inference + Decision Engine (EPIC 7)
+	if components.MLProtection != nil {
+		router.Use(components.MLProtection.Middleware())
+	}
 }

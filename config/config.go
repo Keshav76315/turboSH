@@ -41,6 +41,9 @@ type Config struct {
 	// Traffic logging settings
 	LogFilePath   string // Path to traffic log file (JSON Lines)
 	LogBufferSize int    // Write buffer size in bytes
+
+	// ML Inference settings
+	ONNXSharedLibraryPath string // Path to the downloaded ONNX Runtime shared library (.so, .dll, .dylib)
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -78,6 +81,9 @@ func Load() *Config {
 		// Traffic logging
 		LogFilePath:   envOrDefault("TURBOSH_LOG_FILE_PATH", "logs/traffic.jsonl"),
 		LogBufferSize: envOrDefaultInt("TURBOSH_LOG_BUFFER_SIZE", 4096),
+
+		// ML Inference
+		ONNXSharedLibraryPath: envOrDefault("TURBOSH_ONNX_LIB_PATH", ""),
 	}
 }
 
