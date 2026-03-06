@@ -1,6 +1,8 @@
 package inference
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"log"
 	"net/http"
 	"sync"
@@ -27,6 +29,12 @@ type MLProtection struct {
 	mu sync.Mutex
 }
 
+// redactIP hashes the IP address to protect raw PII in the logs.
+func redactIP(ip string) string {
+	hash := sha256.Sum256([]byte(ip + "turboSH_salt"))
+	return hex.EncodeToString(hash[:8])
+}
+
 // NewMLProtection initializes the live ML-based protection middleware.
 func NewMLProtection(engine *Engine, de decision.DecisionEngine) *MLProtection {
 	return &MLProtection{
@@ -51,6 +59,11 @@ func (mlp *MLProtection) prune(ip string, now time.Time) {
 		}
 	}
 	mlp.requestTimes[ip] = valid
+
+	if len(valid) == 0 {
+		delete(mlp.requestTimes, ip)
+		delete(mlp.endpoints, ip)
+	}
 }
 
 // recordRequest updates the internal trackers for a given IP and endpoint.
@@ -139,7 +152,7 @@ func (mlp *MLProtection) Middleware() gin.HandlerFunc {
 		// 4. Enforce Action
 		switch action {
 		case decision.ActionBlock:
-			log.Printf("[ML Protection] 🚨 BLOCKING %s (Score: %.2f)", ip, score)
+			log.Printf("[ML Protection] 🚨 BLOCKING %s (Score: %.2f)", redactIP(ip), score)
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 				"error":   "access_denied",
 				"message": "Traffic resembles a known attack signature. Blocked.",
@@ -148,14 +161,17 @@ func (mlp *MLProtection) Middleware() gin.HandlerFunc {
 		case decision.ActionRateLimit:
 			// In a more complex setup, we would dynamically tighten the token bucket here.
 			// Instead of a hard block, we simulate aggressive rate limiting by returning 429.
-			log.Printf("[ML Protection] ⚠️ THROTTLING %s (Score: %.2f)", ip, score)
+			log.Printf("[ML Protection] ⚠️ THROTTLING %s (Score: %.2f)", redactIP(ip), score)
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
 				"error":   "rate_limit_exceeded",
 				"message": "Suspicious traffic pattern detected. Please slow down.",
 			})
 			return
 		case decision.ActionAllow:
-			// log.Printf("[ML Protection] ✅ ALLOW %s", ip)
+			// log.Printf("[ML Protection] ✅ ALLOW %s", redactIP(ip))
+			c.Next()
+		default:
+			log.Printf("[ML Protection] ❓ UNKNOWN ACTION %s for %s (Score: %.2f) - Defaulting to ALLOW", action, redactIP(ip), score)
 			c.Next()
 		}
 	}

@@ -72,8 +72,12 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 		engine, err := inference.NewEngine(modelPath)
 		if err == nil {
 			// ThresholdPolicy from EPIC 2
-			de, _ := decision.NewThresholdPolicy(0.85, 0.65)
-			mlProtection = inference.NewMLProtection(engine, de)
+			de, err := decision.NewThresholdPolicy(0.85, 0.65)
+			if err != nil {
+				log.Printf("[setup] Error creating ThresholdPolicy: %v. Running in static-rule mode.", err)
+			} else {
+				mlProtection = inference.NewMLProtection(engine, de)
+			}
 		} else {
 			log.Printf("[setup] Could not start ML Engine: %v. Running in static-rule mode.", err)
 		}

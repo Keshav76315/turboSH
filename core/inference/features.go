@@ -41,7 +41,7 @@ func NormalizeScore(rawScore int64) float64 {
 	return 0.0 // Normal
 }
 
-// ShanonEntropy computes the entropy of a given array of counts.
+// ShannonEntropy computes the entropy of a given array of counts.
 // Used to calculate EndpointEntropy.
 func ShannonEntropy(counts []int) float32 {
 	if len(counts) == 0 {

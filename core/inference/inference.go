@@ -21,6 +21,11 @@ var SharedLibraryPath string
 // Initialize sets up the ONNX runtime library. Requires the path to the
 // ONNX Runtime Shared Library (.so, .dll, or .dylib).
 func Initialize(sharedLibPath string) error {
+	if ort.IsInitialized() {
+		log.Println("[inference] ONNX Environment already initialized")
+		return nil
+	}
+
 	SharedLibraryPath = sharedLibPath
 	ort.SetSharedLibraryPath(sharedLibPath)
 	err := ort.InitializeEnvironment()
@@ -74,6 +79,7 @@ func NewEngine(modelPath string) (*Engine, error) {
 func (e *Engine) Close() {
 	if e.session != nil {
 		e.session.Destroy()
+		e.session = nil
 		e.modelLoaded = false
 	}
 }
@@ -86,9 +92,13 @@ func (e *Engine) Predict(features RequestFeatures) (float64, error) {
 	}
 
 	inputData := features.ToArray()
+	n := len(inputData)
+	if n == 0 {
+		return 0, fmt.Errorf("input features cannot be empty")
+	}
 
-	// Create a tensor for a single batch of shape (1, 6)
-	inputShape := ort.NewShape(1, 6)
+	// Create a tensor for a single batch of shape (1, n)
+	inputShape := ort.NewShape(1, int64(n))
 
 	// Create input tensor wrapping our data
 	inputTensor, err := ort.NewTensor(inputShape, inputData)
