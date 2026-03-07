@@ -16,11 +16,11 @@
 
 ### Error Analysis & Reliability
 
-| Phase     | Total Requests | Successful (2xx) | Errors (4xx/5xx) | Error Rate | Primary Cause             |
-| --------- | -------------- | ---------------- | ---------------- | ---------- | ------------------------- |
-| Baseline  | 50             | 50               | 0                | 0.0%       | N/A                       |
-| Sustained | 15112          | 11632            | 3480             | **23.0%**  | Throttling (429)          |
-| Spike     | 500            | 149              | 351              | **70.2%**  | Queue Timeout / Fail-Fast |
+| Phase     | Total Requests | Non-Error (2xx/429) | Failed Requests | Error Rate | Primary Cause             |
+| --------- | -------------- | ------------------- | --------------- | ---------- | ------------------------- |
+| Baseline  | 50             | 50                  | 0               | 0.0%       | N/A                       |
+| Sustained | 15112          | 11632               | 3480            | **23.0%**  | Throttling (429)          |
+| Spike     | 500            | 149                 | 351             | **70.2%**  | Queue Timeout / Fail-Fast |
 
 #### 1. Sustained Load Throttling (23%)
 
