@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Keshav76315/turboSH/config"
 	"github.com/gin-gonic/gin"
 )
 
@@ -46,14 +47,14 @@ type TrafficLogger struct {
 	file         *os.File
 	mu           sync.Mutex
 	closed       bool
+	cfg          *config.Config
 	mlProtection MLMetricsRecorder // Optional reference to feed metrics back to ML pipeline
 }
 
 // NewTrafficLogger creates a new traffic logger that writes to the given file path.
-// The file is created (or appended to) automatically.
-// bufferSize controls the write buffer size in bytes (0 = default 4096).
-// mlp is an optional reference to the ML engine to feed metrics back; can be nil.
-func NewTrafficLogger(filePath string, bufferSize int, mlp MLMetricsRecorder) (*TrafficLogger, error) {
+func NewTrafficLogger(cfg *config.Config, mlp MLMetricsRecorder) (*TrafficLogger, error) {
+	filePath := cfg.LogFilePath
+	bufferSize := cfg.LogBufferSize
 	if filePath == "" {
 		filePath = "logs/traffic.jsonl"
 	}
@@ -76,6 +77,7 @@ func NewTrafficLogger(filePath string, bufferSize int, mlp MLMetricsRecorder) (*
 		writer:       bufio.NewWriterSize(file, bufferSize),
 		file:         file,
 		closed:       false,
+		cfg:          cfg,
 		mlProtection: mlp,
 	}, nil
 }
@@ -92,7 +94,7 @@ func (tl *TrafficLogger) Middleware() gin.HandlerFunc {
 		start := time.Now()
 
 		// Use custom extractor to guarantee we get the real IP behind load balancers
-		clientIP := GetClientIP(c.Request)
+		clientIP := GetClientIP(c.Request, tl.cfg)
 		ipHash := RedactIP(clientIP)
 
 		// Let the rest of the pipeline run (proxy, etc.)

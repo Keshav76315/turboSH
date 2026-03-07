@@ -1,7 +1,7 @@
 # turboSH — System Architecture
 
-**Version:** 1.0
-**Last Updated:** 2026-03-07
+**Version: 0.2.0
+**Last Updated:\*\* 2026-03-07
 
 ---
 

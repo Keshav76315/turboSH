@@ -68,7 +68,7 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 			if err != nil {
 				log.Printf("[setup] Error creating ThresholdPolicy: %v. Running in static-rule mode.", err)
 			} else {
-				mlProtection = inference.NewMLProtection(engine, de)
+				mlProtection = inference.NewMLProtection(cfg, engine, de)
 			}
 		} else {
 			log.Printf("[setup] Could not start ML Engine: %v. Running in static-rule mode.", err)
@@ -78,7 +78,7 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 	}
 
 	// Create traffic logger
-	trafficLogger, err := logging.NewTrafficLogger(cfg.LogFilePath, cfg.LogBufferSize, mlProtection)
+	trafficLogger, err := logging.NewTrafficLogger(cfg, mlProtection)
 	if err != nil {
 		close(stop) // prevent TTL manager goroutine leak
 		return nil, fmt.Errorf("failed to create traffic logger: %w", err)

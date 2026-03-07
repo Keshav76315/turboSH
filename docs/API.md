@@ -125,9 +125,9 @@ Content-Type: application/json
 }
 ```
 
-### Embedded ONNX Runtime (Go) — Standard
+### Implementation: Embedded ONNX Runtime (Go)
 
-The ML model is loaded directly into the Go process via ONNX Runtime bindings. The inference engine is integrated as middleware, extracting live features and passing scores to the Decision Engine. No external Python service is required for production.
+This is the standard production implementation for turboSH. It bundles the ML inference engine directly into the Go binary via ONNX Runtime bindings. The inference engine is integrated as middleware, extracting live features and passing scores to the Decision Engine. No external Python service is required for production.
 
 ---
 

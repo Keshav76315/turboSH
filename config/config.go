@@ -2,6 +2,7 @@
 package config
 
 import (
+	"net"
 	"os"
 	"strconv"
 	"strings"
@@ -50,10 +51,15 @@ type Config struct {
 
 // Load reads configuration from environment variables with sensible defaults.
 func Load() *Config {
-	port := envOrDefault("TURBOSH_PORT", ":8080")
-	if len(port) > 0 && port[0] != ':' {
-		port = ":" + port
+	// Handle ListenPort separately to normalize input
+	port := os.Getenv("TURBOSH_PORT")
+	if port == "" {
+		port = "8080" // Default if not set
+	} else if port[0] == ':' {
+		port = port[1:] // Remove leading colon if present for consistency
 	}
+	// Always prepend a colon for the final ListenPort value
+	port = ":" + port
 
 	return &Config{
 		// Server
@@ -93,6 +99,42 @@ func Load() *Config {
 		// ML Inference
 		ONNXSharedLibraryPath: envOrDefault("TURBOSH_ONNX_LIB_PATH", ""),
 	}
+}
+
+// IsProxyTrusted checks if the given remote address (from r.RemoteAddr) is in the TrustedProxies list.
+// It supports both exact IP matches and CIDR ranges.
+func (cfg *Config) IsProxyTrusted(remoteAddr string) bool {
+	if len(cfg.TrustedProxies) == 0 {
+		return false
+	}
+
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		host = remoteAddr
+	}
+	remoteIP := net.ParseIP(host)
+	if remoteIP == nil {
+		return false
+	}
+
+	for _, proxy := range cfg.TrustedProxies {
+		// Try parsing as CIDR
+		_, ipNet, err := net.ParseCIDR(proxy)
+		if err == nil {
+			if ipNet.Contains(remoteIP) {
+				return true
+			}
+			continue
+		}
+
+		// Try parsing as exact IP
+		proxyIP := net.ParseIP(proxy)
+		if proxyIP != nil && proxyIP.Equal(remoteIP) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func envOrDefault(key, fallback string) string {

@@ -36,12 +36,15 @@ func main() {
 
 	// Securely handle X-Forwarded-For parsing based on trusted proxies.
 	if len(cfg.TrustedProxies) > 0 {
-		router.SetTrustedProxies(cfg.TrustedProxies)
-		log.Printf("Trusted Proxies: %v", cfg.TrustedProxies)
+		log.Printf("[Init] Trusting proxies: %v", cfg.TrustedProxies)
+		if err := router.SetTrustedProxies(cfg.TrustedProxies); err != nil {
+			log.Fatalf("[CRITICAL] Failed to set trusted proxies %v: %v", cfg.TrustedProxies, err)
+		}
 	} else {
-		// Nil forces Gin NOT to trust any X-Forwarded-For headers, preventing IP spoofing
-		router.SetTrustedProxies(nil)
-		log.Printf("Trusted Proxies: None (Defaulting to raw connection IP)")
+		log.Println("[Init] No trusted proxies defined. Disabling wildcard proxy trust.")
+		if err := router.SetTrustedProxies(nil); err != nil {
+			log.Fatalf("[CRITICAL] Failed to disable wildcard proxy trust: %v", err)
+		}
 	}
 
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))

@@ -9,7 +9,7 @@
 Produced by the **Traffic Logger** (`pipeline/logging/`).
 
 Each log entry is a single JSON object per line (JSON Lines format).
-_For architectural details regarding how the ML models were trained, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)._
+_For architecturalFor detailed technical definitions of these features, see [ARCHITECTURE.md](ARCHITECTURE.md)._
 
 ### Fields
 

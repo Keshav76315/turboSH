@@ -36,7 +36,7 @@ Assuming you have an existing application running on `http://api.mycompany.com:5
 
 ```bash
 docker run -d \
-  --name turbosh \
+  --name turbosh-proxy \
   -p 8080:8080 \
   -e TURBOSH_BACKEND="http://api.mycompany.com:5000" \
   turbosh-proxy

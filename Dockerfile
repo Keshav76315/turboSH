@@ -1,5 +1,5 @@
 # --- Builder Stage ---
-FROM golang:1.25-bookworm AS builder
+FROM golang:1.24-bookworm AS builder
 
 # Install build dependencies (gcc, libc-dev) required for CGO and wget for ONNX
 RUN apt-get update && apt-get install -y gcc libc-dev wget ca-certificates && rm -rf /var/lib/apt/lists/*

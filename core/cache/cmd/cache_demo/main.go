@@ -14,6 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/Keshav76315/turboSH/config"
 	cachesystem "github.com/Keshav76315/turboSH/core/cache"
 	"github.com/Keshav76315/turboSH/pipeline/logging"
 )
@@ -29,7 +30,8 @@ func main() {
 	cacheMiddleware := cachesystem.NewCacheMiddleware(cache, 5*time.Minute, 1<<20)
 
 	// ---------- 2. Create traffic logger ----------
-	trafficLogger, err := logging.NewTrafficLogger("logs/traffic.jsonl", 4096, nil)
+	cfg := config.Load()
+	trafficLogger, err := logging.NewTrafficLogger(cfg, nil)
 	if err != nil {
 		log.Fatalf("failed to create traffic logger: %v", err)
 	}

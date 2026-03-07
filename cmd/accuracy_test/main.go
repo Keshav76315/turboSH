@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const targetURL = "http://localhost:8081"
+const targetURL = "http://localhost:8080"
 
 type RequestResult struct {
 	StatusCode int

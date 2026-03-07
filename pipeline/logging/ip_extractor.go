@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/Keshav76315/turboSH/config"
 )
 
 var ipSalt string
@@ -28,26 +30,29 @@ func RedactIP(ip string) string {
 }
 
 // GetClientIP extracts the real client IP from HTTP headers (X-Forwarded-For, X-Real-IP)
-// before falling back to the raw RemoteAddr. Essential for proxy/load-balancer setups.
-func GetClientIP(r *http.Request) string {
-	// Check X-Forwarded-For header
-	forwarded := r.Header.Get("X-Forwarded-For")
-	if forwarded != "" {
-		ips := strings.Split(forwarded, ",")
-		return strings.TrimSpace(ips[0])
-	}
-
-	// Check X-Real-IP
-	realIP := r.Header.Get("X-Real-IP")
-	if realIP != "" {
-		return strings.TrimSpace(realIP)
-	}
-
-	// Fallback to RemoteAddr
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+// but ONLY if the request comes from a trusted proxy.
+func GetClientIP(r *http.Request, cfg *config.Config) string {
+	// Fallback/Direct IP
+	remoteIP, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		// If SplitHostPort fails (e.g., no port), just use the raw address
-		return r.RemoteAddr
+		remoteIP = r.RemoteAddr
 	}
-	return ip
+
+	// Only trust headers if the remote address is a trusted proxy
+	if cfg != nil && cfg.IsProxyTrusted(r.RemoteAddr) {
+		// Check X-Forwarded-For header
+		forwarded := r.Header.Get("X-Forwarded-For")
+		if forwarded != "" {
+			ips := strings.Split(forwarded, ",")
+			return strings.TrimSpace(ips[0])
+		}
+
+		// Check X-Real-IP
+		realIP := r.Header.Get("X-Real-IP")
+		if realIP != "" {
+			return strings.TrimSpace(realIP)
+		}
+	}
+
+	return remoteIP
 }
