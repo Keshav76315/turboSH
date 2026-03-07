@@ -24,7 +24,7 @@
 
 - Correctly Allowed (TN): 29
 - Incorrectly Blocked (FP): 1
-- Result: REVIEW — 1 false positive (0.33% FPR)detected
+- Result: REVIEW — 1 false positive (0.33% FPR) detected
 
 ### DDoS Burst (200 concurrent requests)
 

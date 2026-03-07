@@ -2,6 +2,7 @@
 package config
 
 import (
+	"log"
 	"net"
 	"os"
 	"strconv"
@@ -51,21 +52,42 @@ type Config struct {
 
 // Load reads configuration from environment variables with sensible defaults.
 func Load() *Config {
-	// Handle ListenPort separately to normalize input
 	port := os.Getenv("TURBOSH_PORT")
 	if port == "" {
 		port = "8080" // Default if not set
-	} else if port[0] == ':' {
-		port = port[1:] // Remove leading colon if present for consistency
+	} else {
+		// Remove leading colon if present for consistency
+		if port[0] == ':' {
+			port = port[1:]
+		}
+		// Validate that the remaining string is empty or a valid port number
+		if port == "" {
+			log.Fatalf("[config] TURBOSH_PORT cannot be just ':'")
+		}
+		if n, err := strconv.Atoi(port); err != nil || n < 1 || n > 65535 {
+			log.Fatalf("[config] Invalid TURBOSH_PORT: %s (must be 1-65535)", port)
+		}
 	}
 	// Always prepend a colon for the final ListenPort value
 	port = ":" + port
+
+	trustedProxies := envOrDefaultSlice("TURBOSH_TRUSTED_PROXIES", nil)
+	var validProxies []string
+	for _, proxy := range trustedProxies {
+		_, _, errCIDR := net.ParseCIDR(proxy)
+		ip := net.ParseIP(proxy)
+		if errCIDR != nil && ip == nil {
+			log.Printf("[config] WARNING: Invalid TrustedProxies entry: %q", proxy)
+		} else {
+			validProxies = append(validProxies, proxy)
+		}
+	}
 
 	return &Config{
 		// Server
 		ListenPort:     port,
 		BackendURL:     envOrDefault("TURBOSH_BACKEND", "http://localhost:9092"),
-		TrustedProxies: envOrDefaultSlice("TURBOSH_TRUSTED_PROXIES", nil),
+		TrustedProxies: validProxies,
 
 		// Scheduler
 		MaxConcurrent: envOrDefaultInt("TURBOSH_MAX_CONCURRENT", 100),

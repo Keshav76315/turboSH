@@ -39,7 +39,7 @@ func GetClientIP(r *http.Request, cfg *config.Config) string {
 	}
 
 	// Only trust headers if the remote address is a trusted proxy
-	if cfg != nil && cfg.IsProxyTrusted(r.RemoteAddr) {
+	if cfg != nil && cfg.IsProxyTrusted(remoteIP) {
 		// Check X-Forwarded-For header
 		forwarded := r.Header.Get("X-Forwarded-For")
 		if forwarded != "" {

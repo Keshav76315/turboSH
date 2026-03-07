@@ -53,6 +53,9 @@ type TrafficLogger struct {
 
 // NewTrafficLogger creates a new traffic logger that writes to the given file path.
 func NewTrafficLogger(cfg *config.Config, mlp MLMetricsRecorder) (*TrafficLogger, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("cfg is nil")
+	}
 	filePath := cfg.LogFilePath
 	bufferSize := cfg.LogBufferSize
 	if filePath == "" {

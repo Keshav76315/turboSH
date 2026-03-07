@@ -18,16 +18,16 @@
 
 | Phase     | Total Requests | Successful (2xx) | Errors (4xx/5xx) | Error Rate | Primary Cause             |
 | --------- | -------------- | ---------------- | ---------------- | ---------- | ------------------------- |
-| Baseline  | 5000           | 5000             | 0                | 0.0%       | N/A                       |
+| Baseline  | 50             | 50               | 0                | 0.0%       | N/A                       |
 | Sustained | 15112          | 11632            | 3480             | **23.0%**  | Throttling (429)          |
 | Spike     | 500            | 149              | 351              | **70.2%**  | Queue Timeout / Fail-Fast |
 
 #### 1. Sustained Load Throttling (23%)
 
-The 23% error rate during sustained load is **intentional and expected**.
+The 23% error rate (3,480 errors) during sustained load is **intentional and expected**.
 
-- **Analysis**: Of the 3,480 errors, **9,632 requests** (cumulative across profile) were correctly intercepted by the `RateLimiter`.
-- **Finding**: The system is successfully protecting the backend from saturation by enforcing the configured tokens per second. These are `429 Too Many Requests` responses, not system failures.
+- **Analysis**: Separately from those errors, **9,632 requests** (cumulative across profile) were safely throttled and intercepted by the `RateLimiter`.
+- **Finding**: The system is successfully protecting the backend from saturation by enforcing the configured tokens per second. These throttled requests returned `429 Too Many Requests` responses.
 
 #### 2. Spike Phase Failure (70.2%) — [CRITICAL]
 

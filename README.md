@@ -20,10 +20,16 @@ Designed to run on commodity hardware — no GPU required.
 
 ## 🚀 Docker Quickstart (Plug & Play)
 
-You can run turboSH in front of any existing API without installing Go or Python. The machine learning engine, ONNX bindings, and proxy are all bundled into a single lightweight container.
+You can run turboSH in front of any existing API without installing Go or Python. Make sure to build the image locally first!
 
 ```bash
-docker run -p 8080:8080 -e TURBOSH_BACKEND="http://your-app:9090" turbosh-proxy
+docker build -t turbosh-proxy .
+```
+
+_Note: Replace `host.docker.internal:9090` with the actual reachable URL of your backend._
+
+```bash
+docker run -p 8080:8080 -e TURBOSH_BACKEND="http://host.docker.internal:9090" turbosh-proxy
 ```
 
 **Want to customize rate limits, ML thresholds, or integrate with Grafana?**  
