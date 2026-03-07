@@ -48,8 +48,8 @@ type MLProtection struct {
 	mu sync.Mutex
 }
 
-// redactIP hashes the IP address to protect raw PII in the logs.
-func redactIP(ip string) string {
+// RedactIP hashes the IP address to protect raw PII in the logs.
+func RedactIP(ip string) string {
 	hash := sha256.Sum256([]byte(ip + ipSalt))
 	return hex.EncodeToString(hash[:8])
 }
@@ -192,7 +192,7 @@ func (mlp *MLProtection) recordRequest(ip string, endpoint string) RequestFeatur
 		}
 		variance = float32(sumSquares / float64(len(latencies)-1))
 	} else if len(latencies) == 1 {
-		variance = 10.0 // healthy default for single request
+		variance = 0.0 // mathematically correct variance for a single request
 	}
 
 	return RequestFeatures{
@@ -209,23 +209,23 @@ func (mlp *MLProtection) recordRequest(ip string, endpoint string) RequestFeatur
 // anomalies via ONNX, evaluates them against the Decision Engine, and takes action.
 func (mlp *MLProtection) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ip := c.ClientIP()
+		ipHash := RedactIP(c.ClientIP())
 		endpoint := c.Request.URL.Path
 
 		// 1. Extract dynamic features
-		features := mlp.recordRequest(ip, endpoint)
+		features := mlp.recordRequest(ipHash, endpoint)
 
 		// 2. Predict Anomaly Score (0.0 to 1.0)
 		score, err := mlp.engine.Predict(features)
 		if err != nil {
-			log.Printf("[ML Protection] Inference error for %s: %v", ip, err)
+			log.Printf("[ML Protection] Inference error for %s: %v", ipHash, err)
 			c.Next() // Fail open to maintain proxy availability
 			return
 		}
 
 		// 3. Evaluate Decision
 		prediction := decision.Prediction{
-			IPHash:       ip,
+			IPHash:       ipHash,
 			AnomalyScore: score,
 		}
 
@@ -234,7 +234,7 @@ func (mlp *MLProtection) Middleware() gin.HandlerFunc {
 		// 4. Enforce Action
 		switch action {
 		case decision.ActionBlock:
-			log.Printf("[ML Protection] 🚨 BLOCKING %s (Score: %.2f)", redactIP(ip), score)
+			log.Printf("[ML Protection] 🚨 BLOCKING %s (Score: %.2f)", ipHash, score)
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 				"error":   "access_denied",
 				"message": "Traffic resembles a known attack signature. Blocked.",
@@ -243,17 +243,17 @@ func (mlp *MLProtection) Middleware() gin.HandlerFunc {
 		case decision.ActionRateLimit:
 			// In a more complex setup, we would dynamically tighten the token bucket here.
 			// Instead of a hard block, we simulate aggressive rate limiting by returning 429.
-			log.Printf("[ML Protection] ⚠️ THROTTLING %s (Score: %.2f)", redactIP(ip), score)
+			log.Printf("[ML Protection] ⚠️ THROTTLING %s (Score: %.2f)", ipHash, score)
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
 				"error":   "rate_limit_exceeded",
 				"message": "Suspicious traffic pattern detected. Please slow down.",
 			})
 			return
 		case decision.ActionAllow:
-			log.Printf("[ML Protection] ✅ ALLOW %s", redactIP(ip))
+			log.Printf("[ML Protection] ✅ ALLOW %s", ipHash)
 			c.Next()
 		default:
-			log.Printf("[ML Protection] ❓ UNKNOWN ACTION %s for %s (Score: %.2f) - Defaulting to ALLOW", action, redactIP(ip), score)
+			log.Printf("[ML Protection] ❓ UNKNOWN ACTION %s for %s (Score: %.2f) - Defaulting to ALLOW", action, ipHash, score)
 			c.Next()
 		}
 	}

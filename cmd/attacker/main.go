@@ -33,7 +33,10 @@ func main() {
 }
 
 func sendRequest(path string) {
-	resp, err := http.Get(targetURL + path)
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+	resp, err := client.Get(targetURL + path)
 	if err != nil {
 		fmt.Printf("Request Failed: %v\n", err)
 		return

@@ -7,8 +7,6 @@ package logging
 
 import (
 	"bufio"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -87,6 +85,7 @@ func NewTrafficLogger(filePath string, bufferSize int, mlp *inference.MLProtecti
 func (tl *TrafficLogger) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
+		ipHash := inference.RedactIP(c.ClientIP())
 
 		// Let the rest of the pipeline run (proxy, etc.)
 		c.Next()
@@ -97,12 +96,12 @@ func (tl *TrafficLogger) Middleware() gin.HandlerFunc {
 
 		// Feed metrics back to the ML engine so it can learn from actual backend behavior
 		if tl.mlProtection != nil {
-			tl.mlProtection.RecordBackendResponse(c.ClientIP(), statusCode, elapsed)
+			tl.mlProtection.RecordBackendResponse(ipHash, statusCode, elapsed)
 		}
 
 		entry := TrafficLogEntry{
 			Timestamp:    start.UTC().Format(time.RFC3339),
-			IPHash:       hashIP(c.ClientIP()),
+			IPHash:       ipHash,
 			Endpoint:     c.Request.URL.Path,
 			Method:       c.Request.Method,
 			StatusCode:   statusCode,
@@ -174,10 +173,3 @@ func (tl *TrafficLogger) Close() error {
 }
 
 // ---------- helpers ----------
-
-// hashIP returns the first 16 hex characters of a SHA-256 hash of the IP address.
-// This anonymizes the client IP while still allowing per-IP aggregation.
-func hashIP(ip string) string {
-	h := sha256.Sum256([]byte(ip))
-	return hex.EncodeToString(h[:8]) // 16 hex chars
-}
