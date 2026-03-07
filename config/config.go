@@ -4,14 +4,16 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
 // Config holds all turboSH configuration values.
 type Config struct {
 	// Server settings
-	ListenPort string // Port the proxy listens on (default ":8080")
-	BackendURL string // Backend server URL to forward requests to
+	ListenPort     string   // Port the proxy listens on (default ":8080")
+	BackendURL     string   // Backend server URL to forward requests to
+	TrustedProxies []string // List of trusted proxy IPs/CIDRs for parsing X-Forwarded-For
 
 	// Scheduler settings
 	MaxConcurrent int           // Max concurrent requests allowed through the scheduler
@@ -48,10 +50,16 @@ type Config struct {
 
 // Load reads configuration from environment variables with sensible defaults.
 func Load() *Config {
+	port := envOrDefault("TURBOSH_PORT", ":8080")
+	if len(port) > 0 && port[0] != ':' {
+		port = ":" + port
+	}
+
 	return &Config{
 		// Server
-		ListenPort: envOrDefault("TURBOSH_PORT", ":8080"),
-		BackendURL: envOrDefault("TURBOSH_BACKEND", "http://localhost:9092"),
+		ListenPort:     port,
+		BackendURL:     envOrDefault("TURBOSH_BACKEND", "http://localhost:9092"),
+		TrustedProxies: envOrDefaultSlice("TURBOSH_TRUSTED_PROXIES", nil),
 
 		// Scheduler
 		MaxConcurrent: envOrDefaultInt("TURBOSH_MAX_CONCURRENT", 100),
@@ -116,6 +124,23 @@ func envOrDefaultDuration(key string, fallback time.Duration) time.Duration {
 	if val := os.Getenv(key); val != "" {
 		if d, err := time.ParseDuration(val); err == nil {
 			return d
+		}
+	}
+	return fallback
+}
+
+func envOrDefaultSlice(key string, fallback []string) []string {
+	if val := os.Getenv(key); val != "" {
+		parts := strings.Split(val, ",")
+		var cleaned []string
+		for _, p := range parts {
+			trimmed := strings.TrimSpace(p)
+			if trimmed != "" {
+				cleaned = append(cleaned, trimmed)
+			}
+		}
+		if len(cleaned) > 0 {
+			return cleaned
 		}
 	}
 	return fallback

@@ -1,7 +1,7 @@
 # turboSH — System Architecture
 
-**Version:** 0.1
-**Last Updated:** 2026-03-05
+**Version:** 1.0
+**Last Updated:** 2026-03-07
 
 ---
 
@@ -57,7 +57,7 @@ The entry point for all client traffic.
 | --------- | ---------------------------------------------------- |
 | Language  | Go                                                   |
 | Libraries | `net/http`, `httputil.ReverseProxy`, `gin-gonic/gin` |
-| Owner     | Keshav                                                |
+| Owner     | Keshav                                               |
 
 **Responsibilities:**
 
@@ -80,7 +80,7 @@ Controls request flow to prevent backend overload.
 | Aspect   | Detail |
 | -------- | ------ |
 | Language | Go     |
-| Owner    | Keshav  |
+| Owner    | Keshav |
 
 **Algorithms:**
 
@@ -167,9 +167,9 @@ Transforms raw logs into ML‑ready feature vectors.
 | `requests_per_ip_10s` | Request count per IP in 10s window      |
 | `requests_per_ip_60s` | Request count per IP in 60s window      |
 | `endpoint_entropy`    | Entropy of endpoint distribution per IP |
-| `latency_spike`       | Boolean: response time exceeds baseline |
+| `latency_spike`       | Boolean: max response time > 1.5x avg   |
 | `error_rate`          | Ratio of 4xx/5xx responses              |
-| `request_variance`    | Variance in request timing              |
+| `request_variance`    | Variance of response latencies (jitter) |
 
 **Interfaces:**
 
@@ -188,7 +188,7 @@ Loads trained anomaly detection models and scores incoming traffic.
 | Inference      | ONNX Runtime (Go or Python FastAPI) |
 | Model Format   | ONNX                                |
 | Model Location | `models/anomaly_model.onnx`         |
-| Owner          | Keshav                               |
+| Owner          | Keshav                              |
 
 **Models:**
 
@@ -219,7 +219,7 @@ Translates ML predictions into concrete system actions.
 | Aspect   | Detail |
 | -------- | ------ |
 | Language | Go     |
-| Owner    | Keshav  |
+| Owner    | Keshav |
 
 **Policy Rules:**
 
@@ -245,7 +245,7 @@ System observability via metrics and dashboards.
 | Language | Go                   |
 | Stack    | Prometheus + Grafana |
 | Endpoint | `/metrics`           |
-| Owner    | Keshav                |
+| Owner    | Keshav               |
 
 **Metrics:**
 

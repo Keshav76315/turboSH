@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const targetURL = "http://localhost:8080"
+const targetURL = "http://localhost:8081"
 
 type RequestResult struct {
 	StatusCode int
@@ -18,9 +18,17 @@ type RequestResult struct {
 	Err        error
 }
 
-func doRequest(path string) (int, error) {
+func doRequest(path string, clientIP string) (int, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get(targetURL + path)
+	req, err := http.NewRequest("GET", targetURL+path, nil)
+	if err != nil {
+		return 0, err
+	}
+	if clientIP != "" {
+		req.Header.Set("X-Forwarded-For", clientIP)
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return 0, err
 	}
@@ -35,7 +43,7 @@ func runNormalTraffic() []RequestResult {
 
 	for i := 0; i < 30; i++ {
 		path := endpoints[rand.Intn(len(endpoints))]
-		code, err := doRequest(path)
+		code, err := doRequest(path, "192.168.1.100")
 		r := RequestResult{StatusCode: code, IsAttack: false, Err: err}
 		results = append(results, r)
 		if err != nil {
@@ -60,7 +68,7 @@ func runDDoSAttack() []RequestResult {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			code, err := doRequest("/api/target")
+			code, err := doRequest("/api/target", "10.0.0.50")
 			mu.Lock()
 			results = append(results, RequestResult{StatusCode: code, IsAttack: true, Err: err})
 			mu.Unlock()
@@ -89,7 +97,7 @@ func runScrapingAttack() []RequestResult {
 
 	for i := 0; i < 50; i++ {
 		path := fmt.Sprintf("/api/hidden/resource_%d", rand.Intn(1000))
-		code, err := doRequest(path)
+		code, err := doRequest(path, "10.0.0.51")
 		results = append(results, RequestResult{StatusCode: code, IsAttack: true, Err: err})
 		if err != nil {
 			fmt.Printf("  [Scan %d/50] %s -> ERROR\n", i+1, path)

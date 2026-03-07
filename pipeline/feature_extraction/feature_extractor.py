@@ -19,7 +19,7 @@ Features computed (per IP):
     3. endpoint_entropy     — Shannon entropy of endpoint distribution (0–1)
     4. latency_spike        — 1 if response_time > baseline * 3, else 0
     5. error_rate           — ratio of 4xx/5xx responses
-    6. request_variance     — variance of request inter-arrival times (seconds)
+    6. request_variance     — variance of backend response latencies (ms)
 """
 
 import argparse
@@ -37,6 +37,7 @@ from typing import Dict, List, Optional
 # ─────────────────────────────────────────────
 # Log Reader
 # ─────────────────────────────────────────────
+
 
 def read_traffic_logs(filepath: str) -> List[Dict]:
     """Read a JSON Lines file and return a list of log entries."""
@@ -56,6 +57,7 @@ def read_traffic_logs(filepath: str) -> List[Dict]:
 # ─────────────────────────────────────────────
 # Feature Computation
 # ─────────────────────────────────────────────
+
 
 def parse_timestamp(ts_str: str) -> datetime:
     """Parse an ISO 8601 timestamp string to a datetime object."""
@@ -100,8 +102,10 @@ def compute_inter_arrival_times(timestamps: List[datetime]) -> List[float]:
     if len(timestamps) < 2:
         return []
     sorted_ts = sorted(timestamps)
-    return [(sorted_ts[i + 1] - sorted_ts[i]).total_seconds()
-            for i in range(len(sorted_ts) - 1)]
+    return [
+        (sorted_ts[i + 1] - sorted_ts[i]).total_seconds()
+        for i in range(len(sorted_ts) - 1)
+    ]
 
 
 def extract_features(entries: List[Dict], latency_baseline: float = None) -> List[Dict]:
@@ -168,31 +172,30 @@ def extract_features(entries: List[Dict], latency_baseline: float = None) -> Lis
         entropy = round(compute_entropy(endpoint_counts), 4)
 
         # ── Feature 4: latency_spike ──
-        max_latency = max(
-            (log.get("response_time", 0) for log in ip_logs), default=0
-        )
+        max_latency = max((log.get("response_time", 0) for log in ip_logs), default=0)
         latency_spike = 1 if max_latency > spike_threshold else 0
 
         # ── Feature 5: error_rate ──
-        error_count = sum(
-            1 for log in ip_logs
-            if log.get("status_code", 200) >= 400
+        error_count = sum(1 for log in ip_logs if log.get("status_code", 200) >= 400)
+        error_rate = (
+            round(error_count / total_requests, 4) if total_requests > 0 else 0.0
         )
-        error_rate = round(error_count / total_requests, 4) if total_requests > 0 else 0.0
 
         # ── Feature 6: request_variance ──
-        inter_arrivals = compute_inter_arrival_times(timestamps)
-        request_variance = round(compute_variance(inter_arrivals), 4)
+        latencies = [log.get("response_time", 0.0) for log in ip_logs]
+        request_variance = round(compute_variance(latencies), 4)
 
-        feature_rows.append({
-            "ip_hash": ip_hash,
-            "requests_per_ip_10s": requests_per_10s,
-            "requests_per_ip_60s": requests_per_60s,
-            "endpoint_entropy": entropy,
-            "latency_spike": latency_spike,
-            "error_rate": error_rate,
-            "request_variance": request_variance,
-        })
+        feature_rows.append(
+            {
+                "ip_hash": ip_hash,
+                "requests_per_ip_10s": requests_per_10s,
+                "requests_per_ip_60s": requests_per_60s,
+                "endpoint_entropy": entropy,
+                "latency_spike": latency_spike,
+                "error_rate": error_rate,
+                "request_variance": request_variance,
+            }
+        )
 
     return feature_rows
 
@@ -226,19 +229,22 @@ def write_features_csv(features: List[Dict], output_path: str):
 # Main
 # ─────────────────────────────────────────────
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="turboSH Feature Extractor — converts traffic logs to ML features"
     )
     parser.add_argument(
-        "--input", "-i",
+        "--input",
+        "-i",
         default="logs/traffic.jsonl",
-        help="Path to the JSON Lines traffic log file (default: logs/traffic.jsonl)"
+        help="Path to the JSON Lines traffic log file (default: logs/traffic.jsonl)",
     )
     parser.add_argument(
-        "--output", "-o",
+        "--output",
+        "-o",
         default="datasets/features.csv",
-        help="Path to write the features CSV (default: datasets/features.csv)"
+        help="Path to write the features CSV (default: datasets/features.csv)",
     )
     args = parser.parse_args()
 
@@ -262,12 +268,16 @@ def main():
 
     # Preview
     print("\n📊 Feature Preview:")
-    print(f"   {'ip_hash':<18} {'req/10s':>7} {'req/60s':>7} {'entropy':>8} {'spike':>5} {'err_rate':>8} {'variance':>9}")
+    print(
+        f"   {'ip_hash':<18} {'req/10s':>7} {'req/60s':>7} {'entropy':>8} {'spike':>5} {'err_rate':>8} {'variance':>9}"
+    )
     print(f"   {'─' * 18} {'─' * 7} {'─' * 7} {'─' * 8} {'─' * 5} {'─' * 8} {'─' * 9}")
     for row in features[:10]:  # show first 10
-        print(f"   {row['ip_hash']:<18} {row['requests_per_ip_10s']:>7} {row['requests_per_ip_60s']:>7} "
-              f"{row['endpoint_entropy']:>8.4f} {row['latency_spike']:>5} {row['error_rate']:>8.4f} "
-              f"{row['request_variance']:>9.4f}")
+        print(
+            f"   {row['ip_hash']:<18} {row['requests_per_ip_10s']:>7} {row['requests_per_ip_60s']:>7} "
+            f"{row['endpoint_entropy']:>8.4f} {row['latency_spike']:>5} {row['error_rate']:>8.4f} "
+            f"{row['request_variance']:>9.4f}"
+        )
 
     print(f"\n Done {len(features)} feature rows written to {args.output}")
 

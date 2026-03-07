@@ -125,9 +125,9 @@ Content-Type: application/json
 }
 ```
 
-### Option B — Embedded ONNX Runtime (Go)
+### Embedded ONNX Runtime (Go) — Standard
 
-No HTTP API. The ML model is loaded directly into the Go process via ONNX Runtime bindings. The inference function matches the `DecisionEngine` interface above.
+The ML model is loaded directly into the Go process via ONNX Runtime bindings. The inference engine is integrated as middleware, extracting live features and passing scores to the Decision Engine. No external Python service is required for production.
 
 ---
 

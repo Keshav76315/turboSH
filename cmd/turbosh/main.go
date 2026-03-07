@@ -34,6 +34,16 @@ func main() {
 
 	router := gin.Default()
 
+	// Securely handle X-Forwarded-For parsing based on trusted proxies.
+	if len(cfg.TrustedProxies) > 0 {
+		router.SetTrustedProxies(cfg.TrustedProxies)
+		log.Printf("Trusted Proxies: %v", cfg.TrustedProxies)
+	} else {
+		// Nil forces Gin NOT to trust any X-Forwarded-For headers, preventing IP spoofing
+		router.SetTrustedProxies(nil)
+		log.Printf("Trusted Proxies: None (Defaulting to raw connection IP)")
+	}
+
 	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	router.Use(monitoring.MetricsMiddleware())

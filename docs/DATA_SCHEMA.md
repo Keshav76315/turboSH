@@ -9,6 +9,7 @@
 Produced by the **Traffic Logger** (`pipeline/logging/`).
 
 Each log entry is a single JSON object per line (JSON Lines format).
+_For architectural details regarding how the ML models were trained, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)._
 
 ### Fields
 
@@ -50,9 +51,9 @@ Produced by the **Feature Extraction Pipeline** (`pipeline/feature_extraction/`)
 | `requests_per_ip_10s` | int    | Request count for this IP in the last 10 seconds | `0–1000+`       |
 | `requests_per_ip_60s` | int    | Request count for this IP in the last 60 seconds | `0–5000+`       |
 | `endpoint_entropy`    | float  | Entropy of endpoint distribution for this IP     | `0.0–1.0`       |
-| `latency_spike`       | bool   | Whether response time exceeds baseline threshold | `true/false`    |
+| `latency_spike`       | bool   | Max response time > 1.5x avg (and > 100ms)       | `true/false`    |
 | `error_rate`          | float  | Ratio of 4xx/5xx responses for this IP           | `0.0–1.0`       |
-| `request_variance`    | float  | Variance in request inter-arrival times          | `0.0+`          |
+| `request_variance`    | float  | Variance of response latencies (jitter)          | `0.0+`          |
 
 ### Example
 
@@ -110,7 +111,7 @@ Generated datasets for ML training and evaluation. Stored in `datasets/`.
 | `endpoint_entropy`    | float  | Endpoint distribution entropy |
 | `latency_spike`       | int    | 1 = spike, 0 = normal         |
 | `error_rate`          | float  | 4xx/5xx ratio                 |
-| `request_variance`    | float  | Timing variance               |
+| `request_variance`    | float  | Latency variance (jitter)     |
 | `label`               | int    | `0` = normal, `1` = anomalous |
 
 ### Attack Types

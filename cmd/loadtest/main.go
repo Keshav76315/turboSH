@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-const targetURL = "http://localhost:8080"
+const targetURL = "http://localhost:8081"
 
 type Result struct {
 	StatusCode int
@@ -36,13 +36,18 @@ type PhaseStats struct {
 	Duration    time.Duration
 }
 
-func doRequest(path string) Result {
+func doRequest(path string, clientIP string) Result {
 	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("GET", targetURL+path, nil)
+	if err == nil && clientIP != "" {
+		req.Header.Set("X-Forwarded-For", clientIP)
+	}
+
 	start := time.Now()
-	resp, err := client.Get(targetURL + path)
+	resp, requestErr := client.Do(req)
 	latency := time.Since(start)
-	if err != nil {
-		return Result{Err: err, Latency: latency}
+	if requestErr != nil {
+		return Result{Err: requestErr, Latency: latency}
 	}
 	resp.Body.Close()
 	return Result{StatusCode: resp.StatusCode, Latency: latency}
@@ -58,19 +63,20 @@ func runPhase(name string, concurrency int, totalRequests int, path string) Phas
 
 	for i := 0; i < concurrency; i++ {
 		wg.Add(1)
-		go func() {
+		go func(goroutineID int) {
 			defer wg.Done()
+			clientIP := fmt.Sprintf("192.168.10.%d", goroutineID%250) // simulate up to 250 distinct user IPs
 			for {
 				idx := sent.Add(1)
 				if idx > int64(totalRequests) {
 					return
 				}
-				r := doRequest(path)
+				r := doRequest(path, clientIP)
 				mu.Lock()
 				results = append(results, r)
 				mu.Unlock()
 			}
-		}()
+		}(i)
 	}
 	wg.Wait()
 	elapsed := time.Since(start)
@@ -131,7 +137,7 @@ func runBaseline() PhaseStats {
 	results := make([]Result, 0, 50)
 	start := time.Now()
 	for i := 0; i < 50; i++ {
-		r := doRequest("/api/baseline")
+		r := doRequest("/api/baseline", "192.168.10.1")
 		results = append(results, r)
 		fmt.Printf("  [%d/50] %d  %.0fms\n", i+1, r.StatusCode, float64(r.Latency.Microseconds())/1000)
 		time.Sleep(100 * time.Millisecond)
@@ -255,20 +261,21 @@ func main() {
 
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
-		go func() {
+		go func(goroutineID int) {
 			defer wg.Done()
+			clientIP := fmt.Sprintf("192.168.10.%d", goroutineID%250)
 			for {
 				select {
 				case <-done:
 					return
 				default:
-					r := doRequest("/api/sustained")
+					r := doRequest("/api/sustained", clientIP)
 					mu.Lock()
 					sustainedResults = append(sustainedResults, r)
 					mu.Unlock()
 				}
 			}
-		}()
+		}(i)
 	}
 	wg.Wait()
 	sustainedElapsed := time.Since(start)

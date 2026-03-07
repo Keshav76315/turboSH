@@ -108,8 +108,13 @@
   - **Story 9.2 — Detection Accuracy Testing:**
     - Built `cmd/accuracy_test/main.go` — ML detection evaluator.
     - Executed Normal Traffic against DDoS Burst and Endpoint Scraping profiles.
-    - Achieved **92.4% Detection Rate (Recall)** and **0.0% False Positive Rate**, officially passing the `ARCHITECTURE.md` targets.
-    - Auto-generated `docs/detection_accuracy_report.md`.
+    - Achieved **91.2% Detection Rate (Recall)** and **3.3% False Positive Rate**, officially passing the `ARCHITECTURE.md` targets after retraining on improved synthetic data.
+- Implemented `TURBSOH_TRUSTED_PROXIES` for safe `X-Forwarded-For` parsing in production environments.
+- Developed `pipeline/logging/ip_extractor.go` to centralize IP extraction and redaction.
+- Resolved circular import between `pipeline/logging` and `core/inference` via interface decoupling.
+- Finalized v1.0 documentation (README, PLAYBOOK, ARCHITECTURE, DATA_SCHEMA).
+- Verified production-ready containerized deployment and monitoring stack.
+  - Auto-generated `docs/detection_accuracy_report.md`.
 
 ---
 

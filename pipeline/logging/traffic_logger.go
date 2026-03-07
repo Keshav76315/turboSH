@@ -15,9 +15,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Keshav76315/turboSH/core/inference"
 	"github.com/gin-gonic/gin"
 )
+
+// MLMetricsRecorder defines the feedback loop back to the ML engine
+// without creating an import cycle with the inference package.
+type MLMetricsRecorder interface {
+	RecordBackendResponse(ip string, statusCode int, latencyMs float64)
+}
 
 // ---------- log entry ----------
 
@@ -41,14 +46,14 @@ type TrafficLogger struct {
 	file         *os.File
 	mu           sync.Mutex
 	closed       bool
-	mlProtection *inference.MLProtection // Optional reference to feed metrics back to ML pipeline
+	mlProtection MLMetricsRecorder // Optional reference to feed metrics back to ML pipeline
 }
 
 // NewTrafficLogger creates a new traffic logger that writes to the given file path.
 // The file is created (or appended to) automatically.
 // bufferSize controls the write buffer size in bytes (0 = default 4096).
 // mlp is an optional reference to the ML engine to feed metrics back; can be nil.
-func NewTrafficLogger(filePath string, bufferSize int, mlp *inference.MLProtection) (*TrafficLogger, error) {
+func NewTrafficLogger(filePath string, bufferSize int, mlp MLMetricsRecorder) (*TrafficLogger, error) {
 	if filePath == "" {
 		filePath = "logs/traffic.jsonl"
 	}
@@ -85,7 +90,10 @@ func NewTrafficLogger(filePath string, bufferSize int, mlp *inference.MLProtecti
 func (tl *TrafficLogger) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
-		ipHash := inference.RedactIP(c.ClientIP())
+
+		// Use custom extractor to guarantee we get the real IP behind load balancers
+		clientIP := GetClientIP(c.Request)
+		ipHash := RedactIP(clientIP)
 
 		// Let the rest of the pipeline run (proxy, etc.)
 		c.Next()

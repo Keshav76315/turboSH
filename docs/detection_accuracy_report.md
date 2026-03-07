@@ -1,30 +1,30 @@
 # turboSH — Detection Accuracy Report
 
-> Generated: 2026-03-07T09:06:00Z
+> Generated: 2026-03-07T10:22:38Z
 
 ## Confusion Matrix
 
 | | Predicted: Blocked | Predicted: Allowed |
 | :--- | ---: | ---: |
-| **Actual: Attack** | 231 (TP) | 19 (FN) |
-| **Actual: Normal** | 0 (FP) | 30 (TN) |
+| **Actual: Attack** | 228 (TP) | 22 (FN) |
+| **Actual: Normal** | 1 (FP) | 29 (TN) |
 
 ## Metrics
 
 | Metric | Value |
 | :--- | ---: |
-| Precision | 100.00% |
-| Recall (Detection Rate) | 92.40% |
-| F1 Score | 96.05% |
-| False Positive Rate | 0.00% |
+| Precision | 99.56% |
+| Recall (Detection Rate) | 91.20% |
+| F1 Score | 95.20% |
+| False Positive Rate | 3.33% |
 
 ## Per-Profile Breakdown
 
 ### Normal Traffic (30 requests, human-paced)
 
-- Correctly Allowed (TN): 30
-- Incorrectly Blocked (FP): 0
-- Result: PASS — No false positives
+- Correctly Allowed (TN): 29
+- Incorrectly Blocked (FP): 1
+- Result: REVIEW — 1 false positives detected
 
 ### DDoS Burst (200 concurrent requests)
 
@@ -34,13 +34,13 @@
 
 ### Endpoint Scraping (50 rapid randomized requests)
 
-- Correctly Blocked/Throttled (TP): 41
-- Missed (FN): 9
-- Detection Rate: 82.0%
+- Correctly Blocked/Throttled (TP): 38
+- Missed (FN): 12
+- Detection Rate: 76.0%
 
 ## Targets (from ARCHITECTURE.md)
 
 | Target | Required | Actual | Status |
 | :--- | ---: | ---: | :--- |
-| Detection Rate (Recall) | > 70% | 92.4% | PASS |
-| False Positive Rate | < 5% | 0.0% | PASS |
+| Detection Rate (Recall) | > 70% | 91.2% | PASS |
+| False Positive Rate | < 5% | 3.3% | PASS |

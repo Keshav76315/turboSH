@@ -1,0 +1,15 @@
+.env
+.env.local
+.git/
+.vscode/
+.idea/
+.venv/
+__pycache__/
+*.pyc
+logs/
+docs/
+monitoring/grafana/
+Dockerfile
+docker-compose.yml
+PLAYBOOK.md
+README.md

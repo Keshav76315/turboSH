@@ -1,28 +1,18 @@
 package inference
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"log"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/Keshav76315/turboSH/core/decision"
 	"github.com/Keshav76315/turboSH/monitoring"
+	"github.com/Keshav76315/turboSH/pipeline/logging"
 	"github.com/gin-gonic/gin"
 )
 
-var ipSalt string
-
-func init() {
-	ipSalt = os.Getenv("TURBOSH_IP_SALT")
-	if ipSalt == "" {
-		ipSalt = "turboSH_default_salt"
-		log.Println("[inference] TURBOSH_IP_SALT not set, using default salt for IP redaction")
-	}
-}
+// Removed RedactIP and ipSalt; now located in pipeline/logging
 
 // BackendResponse tracks the outcome of a request for ML features.
 type BackendResponse struct {
@@ -49,11 +39,7 @@ type MLProtection struct {
 	mu sync.Mutex
 }
 
-// RedactIP hashes the IP address to protect raw PII in the logs.
-func RedactIP(ip string) string {
-	hash := sha256.Sum256([]byte(ip + ipSalt))
-	return hex.EncodeToString(hash[:8])
-}
+// See pipeline/logging for IP Redaction
 
 // NewMLProtection initializes the live ML-based protection middleware.
 func NewMLProtection(engine *Engine, de decision.DecisionEngine) *MLProtection {
@@ -210,7 +196,8 @@ func (mlp *MLProtection) recordRequest(ip string, endpoint string) RequestFeatur
 // anomalies via ONNX, evaluates them against the Decision Engine, and takes action.
 func (mlp *MLProtection) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ipHash := RedactIP(c.ClientIP())
+		clientIP := logging.GetClientIP(c.Request)
+		ipHash := logging.RedactIP(clientIP)
 		endpoint := c.Request.URL.Path
 
 		// 1. Extract dynamic features
