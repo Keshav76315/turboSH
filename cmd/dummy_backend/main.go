@@ -25,6 +25,6 @@ func main() {
 		fmt.Fprintf(w, "OK. Backend received request for %s\n", r.URL.Path)
 	})
 
-	fmt.Println("Dummy Backend listening on :9090")
-	log.Fatal(http.ListenAndServe(":9090", nil))
+	fmt.Println("Dummy Backend listening on :9092")
+	log.Fatal(http.ListenAndServe(":9092", nil))
 }

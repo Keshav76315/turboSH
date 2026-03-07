@@ -98,6 +98,19 @@
     - Configured auto-provisioning for Prometheus scraping (`prometheus.yml`) and Grafana datasources/dashboards.
     - Built a pre-configured `turbosh.json` Grafana dashboard featuring the core system metrics.
 
+**Keshav & Anzal**
+
+- **EPIC 9 — Testing & Optimization:**
+  - **Story 9.1 — Load Testing:**
+    - Built `cmd/loadtest/main.go` — A 4-phase stress testing tool (Baseline, Ramp-up, Sustained, Spike).
+    - Validated high-throughput proxy performance (~2500 req/s during ramp-up, stable 600 req/s during 30s sustained load with mixed block/allow traffic).
+    - Auto-generated `docs/benchmark_report.md`.
+  - **Story 9.2 — Detection Accuracy Testing:**
+    - Built `cmd/accuracy_test/main.go` — ML detection evaluator.
+    - Executed Normal Traffic against DDoS Burst and Endpoint Scraping profiles.
+    - Achieved **92.4% Detection Rate (Recall)** and **0.0% False Positive Rate**, officially passing the `ARCHITECTURE.md` targets.
+    - Auto-generated `docs/detection_accuracy_report.md`.
+
 ---
 
 <!--

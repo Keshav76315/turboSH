@@ -51,7 +51,7 @@ func Load() *Config {
 	return &Config{
 		// Server
 		ListenPort: envOrDefault("TURBOSH_PORT", ":8080"),
-		BackendURL: envOrDefault("TURBOSH_BACKEND", "http://localhost:9090"),
+		BackendURL: envOrDefault("TURBOSH_BACKEND", "http://localhost:9092"),
 
 		// Scheduler
 		MaxConcurrent: envOrDefaultInt("TURBOSH_MAX_CONCURRENT", 100),
