@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Keshav76315/turboSH/core/decision"
+	"github.com/Keshav76315/turboSH/monitoring"
 	"github.com/gin-gonic/gin"
 )
 
@@ -234,6 +235,7 @@ func (mlp *MLProtection) Middleware() gin.HandlerFunc {
 		// 4. Enforce Action
 		switch action {
 		case decision.ActionBlock:
+			monitoring.RecordMLBlock()
 			log.Printf("[ML Protection] 🚨 BLOCKING %s (Score: %.2f)", ipHash, score)
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 				"error":   "access_denied",
@@ -241,8 +243,7 @@ func (mlp *MLProtection) Middleware() gin.HandlerFunc {
 			})
 			return
 		case decision.ActionRateLimit:
-			// In a more complex setup, we would dynamically tighten the token bucket here.
-			// Instead of a hard block, we simulate aggressive rate limiting by returning 429.
+			monitoring.RecordMLThrottle()
 			log.Printf("[ML Protection] ⚠️ THROTTLING %s (Score: %.2f)", ipHash, score)
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
 				"error":   "rate_limit_exceeded",
@@ -250,6 +251,7 @@ func (mlp *MLProtection) Middleware() gin.HandlerFunc {
 			})
 			return
 		case decision.ActionAllow:
+			monitoring.RecordMLAllow()
 			log.Printf("[ML Protection] ✅ ALLOW %s", ipHash)
 			c.Next()
 		default:

@@ -9,7 +9,7 @@
 
 | Developer | Role                                          |
 | --------- | --------------------------------------------- |
-| Keshav     | Backend systems + ML engineering              |
+| Keshav    | Backend systems + ML engineering              |
 | Anzal     | Data pipeline + caching system + data science |
 
 ---
@@ -428,17 +428,17 @@ miss → forward request
 
 ## Final Ownership Summary
 
-| System Component   | Owner |
-| ------------------ | ----- |
+| System Component   | Owner  |
+| ------------------ | ------ |
 | Reverse Proxy      | Keshav |
 | Scheduler          | Keshav |
 | Traffic Control    | Keshav |
 | Decision Engine    | Keshav |
 | ML Models          | Keshav |
 | ML Inference       | Keshav |
-| Monitoring         | Keshav |
-| Cache System       | Anzal |
-| Traffic Logging    | Anzal |
-| Feature Extraction | Anzal |
-| Dataset Pipeline   | Anzal |
-| Data Analysis      | Anzal |
+| Monitoring         | Anzal  |
+| Cache System       | Anzal  |
+| Traffic Logging    | Anzal  |
+| Feature Extraction | Anzal  |
+| Dataset Pipeline   | Anzal  |
+| Data Analysis      | Anzal  |
