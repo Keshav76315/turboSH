@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Keshav76315/turboSH/core/inference"
 	"github.com/gin-gonic/gin"
 )
 
@@ -38,16 +39,18 @@ type TrafficLogEntry struct {
 
 // TrafficLogger is a Gin middleware that logs every request to a JSON Lines file.
 type TrafficLogger struct {
-	writer *bufio.Writer
-	file   *os.File
-	mu     sync.Mutex
-	closed bool // Added: indicates if the logger has been closed
+	writer       *bufio.Writer
+	file         *os.File
+	mu           sync.Mutex
+	closed       bool
+	mlProtection *inference.MLProtection // Optional reference to feed metrics back to ML pipeline
 }
 
 // NewTrafficLogger creates a new traffic logger that writes to the given file path.
 // The file is created (or appended to) automatically.
 // bufferSize controls the write buffer size in bytes (0 = default 4096).
-func NewTrafficLogger(filePath string, bufferSize int) (*TrafficLogger, error) {
+// mlp is an optional reference to the ML engine to feed metrics back; can be nil.
+func NewTrafficLogger(filePath string, bufferSize int, mlp *inference.MLProtection) (*TrafficLogger, error) {
 	if filePath == "" {
 		filePath = "logs/traffic.jsonl"
 	}
@@ -67,9 +70,10 @@ func NewTrafficLogger(filePath string, bufferSize int) (*TrafficLogger, error) {
 	}
 
 	return &TrafficLogger{
-		writer: bufio.NewWriterSize(file, bufferSize),
-		file:   file,
-		closed: false, // Explicitly set, though default is false
+		writer:       bufio.NewWriterSize(file, bufferSize),
+		file:         file,
+		closed:       false,
+		mlProtection: mlp,
 	}, nil
 }
 
@@ -89,13 +93,19 @@ func (tl *TrafficLogger) Middleware() gin.HandlerFunc {
 
 		// After the response has been written — capture metadata
 		elapsed := time.Since(start).Seconds() * 1000 // milliseconds
+		statusCode := c.Writer.Status()
+
+		// Feed metrics back to the ML engine so it can learn from actual backend behavior
+		if tl.mlProtection != nil {
+			tl.mlProtection.RecordBackendResponse(c.ClientIP(), statusCode, elapsed)
+		}
 
 		entry := TrafficLogEntry{
 			Timestamp:    start.UTC().Format(time.RFC3339),
 			IPHash:       hashIP(c.ClientIP()),
 			Endpoint:     c.Request.URL.Path,
 			Method:       c.Request.Method,
-			StatusCode:   c.Writer.Status(),
+			StatusCode:   statusCode,
 			ResponseTime: elapsed,
 			RequestSize:  int(c.Request.ContentLength),
 		}

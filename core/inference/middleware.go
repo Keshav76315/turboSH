@@ -23,6 +23,13 @@ func init() {
 	}
 }
 
+// BackendResponse tracks the outcome of a request for ML features.
+type BackendResponse struct {
+	Timestamp  time.Time
+	StatusCode int
+	LatencyMs  float64
+}
+
 // MLProtection encapsulates the inference engine, decision engine,
 // and moving windows needed to compute live features.
 type MLProtection struct {
@@ -31,7 +38,8 @@ type MLProtection struct {
 
 	// Feature tracking state
 	requestTimes map[string][]time.Time
-	endpoints    map[string]map[string]int // IP -> Endpoint -> Count
+	endpoints    map[string]map[string]int    // IP -> Endpoint -> Count
+	ipStats      map[string][]BackendResponse // IP -> Recent Responses
 
 	// Moving window duration constants
 	window10s time.Duration
@@ -53,6 +61,7 @@ func NewMLProtection(engine *Engine, de decision.DecisionEngine) *MLProtection {
 		decisionEngine: de,
 		requestTimes:   make(map[string][]time.Time),
 		endpoints:      make(map[string]map[string]int),
+		ipStats:        make(map[string][]BackendResponse),
 		window10s:      10 * time.Second,
 		window60s:      60 * time.Second,
 	}
@@ -63,18 +72,45 @@ func (mlp *MLProtection) prune(ip string, now time.Time) {
 	times := mlp.requestTimes[ip]
 	cutoff60 := now.Add(-mlp.window60s)
 
-	var valid []time.Time
+	var validTimes []time.Time
 	for _, t := range times {
 		if t.After(cutoff60) {
-			valid = append(valid, t)
+			validTimes = append(validTimes, t)
 		}
 	}
-	mlp.requestTimes[ip] = valid
+	mlp.requestTimes[ip] = validTimes
 
-	if len(valid) == 0 {
+	// Prune IP stats as well
+	stats := mlp.ipStats[ip]
+	var validStats []BackendResponse
+	for _, s := range stats {
+		if s.Timestamp.After(cutoff60) {
+			validStats = append(validStats, s)
+		}
+	}
+	mlp.ipStats[ip] = validStats
+
+	if len(validTimes) == 0 && len(validStats) == 0 {
 		delete(mlp.requestTimes, ip)
 		delete(mlp.endpoints, ip)
+		delete(mlp.ipStats, ip)
 	}
+}
+
+// RecordBackendResponse is called by the traffic logger after a request completes
+// to feed actual response metrics back into the ML feature window.
+func (mlp *MLProtection) RecordBackendResponse(ip string, statusCode int, latencyMs float64) {
+	mlp.mu.Lock()
+	defer mlp.mu.Unlock()
+
+	now := time.Now()
+	mlp.ipStats[ip] = append(mlp.ipStats[ip], BackendResponse{
+		Timestamp:  now,
+		StatusCode: statusCode,
+		LatencyMs:  latencyMs,
+	})
+
+	mlp.prune(ip, now)
 }
 
 // recordRequest updates the internal trackers for a given IP and endpoint.
@@ -112,24 +148,59 @@ func (mlp *MLProtection) recordRequest(ip string, endpoint string) RequestFeatur
 	}
 	entropy := ShannonEntropy(counts)
 
-	// Stubbing more advanced tracking (latency, error_rate, variance)
-	// In a full implementation, these would read from shared metrics maps populated
-	// by observing backend responses. Using robust estimations for now to allow
-	// ML inference on the proxy request timeline.
+	// Calculate Error Rate, Latency Spike, and Request Variance from ipStats
+	stats := mlp.ipStats[ip]
 
-	variance := float32(50.0) // Stub healthy variance
-	if reqs60s > 100 {
-		variance = 100.0
-	} else if reqs60s < 10 {
-		variance = 10.0
+	var errorCount int
+	var totalLatency float64
+	var maxLatency float64
+	var latencies []float64
+
+	for _, s := range stats {
+		if s.StatusCode >= 400 {
+			errorCount++
+		}
+		totalLatency += s.LatencyMs
+		latencies = append(latencies, s.LatencyMs)
+		if s.LatencyMs > maxLatency {
+			maxLatency = s.LatencyMs
+		}
+	}
+
+	var errorRate float32 = 0.0
+	if len(stats) > 0 {
+		errorRate = float32(errorCount) / float32(len(stats))
+	}
+
+	var latencySpike float32 = 0.0
+	if len(stats) > 0 {
+		avgLatency := totalLatency / float64(len(stats))
+		// If the max latency in the window is > 1.5x the average (and at least 100ms), flag as a spike
+		if maxLatency > (avgLatency*1.5) && maxLatency > 100.0 {
+			latencySpike = 1.0
+		}
+	}
+
+	// Calculate Variance of Latency
+	var variance float32 = 0.0
+	if len(latencies) > 1 {
+		avg := totalLatency / float64(len(latencies))
+		var sumSquares float64
+		for _, l := range latencies {
+			diff := l - avg
+			sumSquares += diff * diff
+		}
+		variance = float32(sumSquares / float64(len(latencies)-1))
+	} else if len(latencies) == 1 {
+		variance = 10.0 // healthy default for single request
 	}
 
 	return RequestFeatures{
 		RequestsPerIP10s: float32(reqs10s),
 		RequestsPerIP60s: float32(reqs60s),
 		EndpointEntropy:  entropy,
-		LatencySpike:     0.0,  // Stub
-		ErrorRate:        0.05, // Stub base error rate
+		LatencySpike:     latencySpike,
+		ErrorRate:        errorRate,
 		RequestVariance:  variance,
 	}
 }

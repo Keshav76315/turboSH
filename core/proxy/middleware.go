@@ -57,21 +57,13 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 	stop := lruCache.StartTTLManager(30 * time.Second)
 	cacheMiddleware := cachesystem.NewCacheMiddleware(lruCache, cfg.CacheTTL, 1<<20)
 
-	// Create traffic logger
-	trafficLogger, err := logging.NewTrafficLogger(cfg.LogFilePath, cfg.LogBufferSize)
-	if err != nil {
-		close(stop) // prevent TTL manager goroutine leak
-		return nil, fmt.Errorf("failed to create traffic logger: %w", err)
-	}
-
-	// EPIC 7: Try creating ML Inference Engine. Fail gracefully if ONNX library is missing.
+	// EPIC 7: Create ML Inference Engine first so we can pass it to the logger.
 	var mlProtection *inference.MLProtection
 	err = inference.Initialize(cfg.ONNXSharedLibraryPath) // e.g., /usr/lib/onnxruntime.so
 	if err == nil {
 		modelPath := "models/anomaly_model.onnx"
 		engine, err := inference.NewEngine(modelPath)
 		if err == nil {
-			// ThresholdPolicy from EPIC 2
 			de, err := decision.NewThresholdPolicy(0.85, 0.65)
 			if err != nil {
 				log.Printf("[setup] Error creating ThresholdPolicy: %v. Running in static-rule mode.", err)
@@ -83,6 +75,13 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 		}
 	} else {
 		log.Printf("[setup] ONNX Runtime not initialized: %v. Running in static-rule mode.", err)
+	}
+
+	// Create traffic logger
+	trafficLogger, err := logging.NewTrafficLogger(cfg.LogFilePath, cfg.LogBufferSize, mlProtection)
+	if err != nil {
+		close(stop) // prevent TTL manager goroutine leak
+		return nil, fmt.Errorf("failed to create traffic logger: %w", err)
 	}
 
 	return &Components{

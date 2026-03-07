@@ -29,7 +29,7 @@ func main() {
 	cacheMiddleware := cachesystem.NewCacheMiddleware(cache, 5*time.Minute, 1<<20)
 
 	// ---------- 2. Create traffic logger ----------
-	trafficLogger, err := logging.NewTrafficLogger("logs/traffic.jsonl", 4096)
+	trafficLogger, err := logging.NewTrafficLogger("logs/traffic.jsonl", 4096, nil)
 	if err != nil {
 		log.Fatalf("failed to create traffic logger: %v", err)
 	}
