@@ -32,17 +32,17 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, rate(turbosh_request_duration_seconds_bucket[1m]))",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(turbosh_request_duration_seconds_bucket[1m])))",
           "legendFormat": "p50",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, rate(turbosh_request_duration_seconds_bucket[1m]))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(turbosh_request_duration_seconds_bucket[1m])))",
           "legendFormat": "p95",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.99, rate(turbosh_request_duration_seconds_bucket[1m]))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(turbosh_request_duration_seconds_bucket[1m])))",
           "legendFormat": "p99",
           "refId": "C"
         }
@@ -61,7 +61,7 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "rate(turbosh_cache_hits_total[5m]) / (rate(turbosh_cache_hits_total[5m]) + rate(turbosh_cache_misses_total[5m]))",
+          "expr": "sum(rate(turbosh_cache_hits_total[5m])) / clamp_min(sum(rate(turbosh_cache_hits_total[5m])) + sum(rate(turbosh_cache_misses_total[5m])), 1e-10)",
           "legendFormat": "Hit Rate",
           "refId": "A"
         }
@@ -112,7 +112,7 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "turbosh_scheduler_active / turbosh_scheduler_capacity",
+          "expr": "sum(turbosh_scheduler_active) / clamp_min(sum(turbosh_scheduler_capacity), 1)",
           "legendFormat": "Utilization",
           "refId": "A"
         }
@@ -197,7 +197,7 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "turbosh_ml_blocks_total",
+          "expr": "sum(turbosh_ml_blocks_total)",
           "legendFormat": "Total Blocks",
           "refId": "A"
         }
@@ -216,7 +216,7 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "turbosh_ml_throttles_total",
+          "expr": "sum(turbosh_ml_throttles_total)",
           "legendFormat": "Total Throttles",
           "refId": "A"
         }
@@ -235,7 +235,7 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "turbosh_ml_allows_total",
+          "expr": "sum(turbosh_ml_allows_total)",
           "legendFormat": "Total Allows",
           "refId": "A"
         }

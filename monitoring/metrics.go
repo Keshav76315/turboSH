@@ -2,6 +2,7 @@ package monitoring
 
 import (
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -72,20 +73,24 @@ var (
 			Help: "Maximum concurrent requests allowed by the scheduler.",
 		},
 	)
+
+	registerOnce sync.Once
 )
 
 func Register() {
-	prometheus.MustRegister(
-		RequestsTotal,
-		RequestDuration,
-		CacheHitsTotal,
-		CacheMissesTotal,
-		MLBlocksTotal,
-		MLThrottlesTotal,
-		MLAllowsTotal,
-		SchedulerActive,
-		SchedulerCapacity,
-	)
+	registerOnce.Do(func() {
+		prometheus.MustRegister(
+			RequestsTotal,
+			RequestDuration,
+			CacheHitsTotal,
+			CacheMissesTotal,
+			MLBlocksTotal,
+			MLThrottlesTotal,
+			MLAllowsTotal,
+			SchedulerActive,
+			SchedulerCapacity,
+		)
+	})
 }
 
 func RecordRequest(statusCode int, duration time.Duration) {

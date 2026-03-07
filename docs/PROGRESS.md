@@ -71,10 +71,19 @@
   - Selected IsolationForest as winner (Validation F1 Score ~0.99).
   - Authored evaluation report documenting the selection (`docs/model_evaluation_report.md`).
   - Exported the finalized model via skl2onnx (`ml/export/export_onnx.py` to `models/anomaly_model.onnx`).
+- **EPIC 7 — ML Inference Integration:**
+  - Created ONNX Runtime Go wrapper (`core/inference/inference.go`) with CGO build tags for cross-platform compilation.
+  - Created non-CGO stub (`core/inference/inference_nocgo.go`) for graceful degradation on machines without `gcc`.
+  - Defined `RequestFeatures` struct and `ShannonEntropy` helper (`core/inference/features.go`).
+  - Built ML Protection middleware (`core/inference/middleware.go`) — extracts live features, runs ONNX inference, enforces BLOCK/RATE_LIMIT/ALLOW.
+  - Integrated inference engine into middleware pipeline (`core/proxy/middleware.go`).
+  - Downgraded `onnxruntime_go` v1.27.0 → v1.9.0 to match ORT API Version 17.
+  - Fixed output tensor rank mismatch (`ort.NewShape(1)` → `ort.NewShape(1, 1)`) for skl2onnx compatibility.
+  - Reordered middleware pipeline so ML runs before Cache to prevent cache from masking attack patterns.
 
 **Anzal**
 
-- **EPIC 7 — ML Inference Engine:**
+- **EPIC 7 — ML Inference Engine (Enhancements):**
   - Integrated `MLProtection` middleware with the CGo ONNX engine.
   - Replaced stubbed features with real-time `ErrorRate`, `LatencySpike`, and `RequestVariance` using feedback from `TrafficLogger`.
   - Added explicit HTTP timeouts to the `attacker/main.go` load testing script.
