@@ -72,6 +72,23 @@
   - Authored evaluation report documenting the selection (`docs/model_evaluation_report.md`).
   - Exported the finalized model via skl2onnx (`ml/export/export_onnx.py` to `models/anomaly_model.onnx`).
 
+**Anzal**
+
+- **EPIC 7 — ML Inference Engine:**
+  - Integrated `MLProtection` middleware with the CGo ONNX engine.
+  - Replaced stubbed features with real-time `ErrorRate`, `LatencySpike`, and `RequestVariance` using feedback from `TrafficLogger`.
+  - Added explicit HTTP timeouts to the `attacker/main.go` load testing script.
+  - Standardized privacy-first hashed IP tracking (`RedactIP`) across the ML decision state and traffic logs.
+- **EPIC 8 — Monitoring & Observability:**
+  - **Story 8.1 — Metrics Collector:**
+    - Integrated `prometheus/client_golang` and exported the router's `/metrics` endpoint.
+    - Instrumented internal components to track Request Throughput, Cache Hit Ratio, and ML Anomaly Alerts via Prometheus Counters.
+    - Added concurrent tracking for `Scheduler` Active and Waiting Queues via Prometheus Gauges.
+  - **Story 8.2 — Grafana Dashboard:**
+    - Created `docker-compose.yml` defining the Prometheus + Grafana stack.
+    - Configured auto-provisioning for Prometheus scraping (`prometheus.yml`) and Grafana datasources/dashboards.
+    - Built a pre-configured `turbosh.json` Grafana dashboard featuring the core system metrics.
+
 ---
 
 <!--
