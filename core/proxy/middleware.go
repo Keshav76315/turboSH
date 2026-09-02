@@ -15,6 +15,7 @@ import (
 	"github.com/Keshav76315/turboSH/core/scheduler"
 	"github.com/Keshav76315/turboSH/core/security"
 	"github.com/Keshav76315/turboSH/pipeline/logging"
+	"github.com/Keshav76315/turboSH/pipeline/monitoring"
 )
 
 // Components holds all the middleware components for the pipeline.
@@ -84,8 +85,18 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 		return nil, fmt.Errorf("failed to create traffic logger: %w", err)
 	}
 
+	// EPIC 8: Background poller for gauge metrics
+	sched := scheduler.New(cfg.MaxConcurrent, cfg.QueueTimeout)
+	go func() {
+		for {
+			monitoring.SchedulerActive.Set(float64(sched.ActiveCount()))
+			monitoring.SchedulerWaiting.Set(float64(sched.WaitingCount()))
+			time.Sleep(1 * time.Second)
+		}
+	}()
+
 	return &Components{
-		Scheduler:     scheduler.New(cfg.MaxConcurrent, cfg.QueueTimeout),
+		Scheduler:     sched,
 		RateLimiter:   rateLimiter,
 		TrafficRules:  trafficRules,
 		Cache:         cacheMiddleware,
@@ -104,6 +115,10 @@ func SetupMiddleware(router *gin.Engine, components *Components) {
 	if components == nil {
 		return
 	}
+
+	// 0. Base Metrics (EPIC 8)
+	// Must run first to capture total proxy latency (including queue time).
+	router.Use(monitoring.MetricsMiddleware())
 
 	// 1. Scheduler — concurrency control (first gate)
 	if components.Scheduler != nil {

@@ -234,6 +234,8 @@ func (mlp *MLProtection) Middleware() gin.HandlerFunc {
 			return
 		case decision.ActionRateLimit:
 			monitoring.RecordMLThrottle()
+			// In a more complex setup, we would dynamically tighten the token bucket here.
+			// Instead of a hard block, we simulate aggressive rate limiting by returning 429.
 			log.Printf("[ML Protection] ⚠️ THROTTLING %s (Score: %.2f)", ipHash, score)
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
 				"error":   "rate_limit_exceeded",

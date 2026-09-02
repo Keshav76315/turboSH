@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Keshav76315/turboSH/pipeline/monitoring"
 	"github.com/gin-gonic/gin"
 )
 
@@ -125,6 +126,7 @@ func (m *CacheMiddleware) Middleware() gin.HandlerFunc {
 
 		// ---- Cache lookup ----
 		if cachedResp, found := m.cache.Get(key); found {
+			monitoring.CacheOps.WithLabelValues("hit").Inc()
 			// Cache HIT — write the stored response and abort the chain.
 			serveCachedResponse(c, cachedResp)
 			return
@@ -140,8 +142,12 @@ func (m *CacheMiddleware) Middleware() gin.HandlerFunc {
 			// Double-check: another goroutine may have populated the cache
 			// while we were waiting to enter singleflight.
 			if cachedResp, found := m.cache.Get(key); found {
+				monitoring.CacheOps.WithLabelValues("hit").Inc()
 				return cachedResp, nil
 			}
+
+			// This is a true cache miss
+			monitoring.CacheOps.WithLabelValues("miss").Inc()
 
 			// This goroutine is the "winner" — actually call the backend.
 			recorder := &ginResponseRecorder{
@@ -182,6 +188,7 @@ func (m *CacheMiddleware) Middleware() gin.HandlerFunc {
 		// If this goroutine was a "waiter" (shared=true), it didn't run
 		// c.Next() itself — serve the result from the cache/winning goroutine.
 		if shared {
+			monitoring.CacheOps.WithLabelValues("hit").Inc()
 			cachedResp := result.(*CachedResponse)
 			serveCachedResponse(c, cachedResp)
 		}
