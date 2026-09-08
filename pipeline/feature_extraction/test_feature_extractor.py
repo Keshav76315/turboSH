@@ -117,14 +117,42 @@ class TestFeatureExtractor(unittest.TestCase):
     def test_empty_and_fallback(self):
         self.assertEqual(extract_features([]), [])
 
-        # Fallback when timestamps are invalid
+        # Fallback when timestamps are invalid: conservative 10s count (1), while 60s preserves total
         entries = [
-            {"timestamp": "invalid_ts", "ip_hash": "bad_ts", "endpoint": "/api/test",
+            {"timestamp": f"invalid_ts_{i}", "ip_hash": "bad_ts", "endpoint": "/api/test",
              "status_code": 200, "response_time": 50.0, "request_size": 100}
+            for i in range(75)
         ]
         features = extract_features(entries)
         self.assertEqual(len(features), 1)
         self.assertEqual(features[0]["requests_per_ip_10s"], 1)
+        self.assertEqual(features[0]["requests_per_ip_60s"], 75)
+
+    def test_parameter_validation(self):
+        """Verify window_size and window_step must be strictly positive."""
+        with self.assertRaises(ValueError):
+            extract_features([], window_size=0)
+        with self.assertRaises(ValueError):
+            extract_features([], window_size=-10)
+        with self.assertRaises(ValueError):
+            extract_features([], window_step=0)
+        with self.assertRaises(ValueError):
+            extract_features([], window_step=-5)
+
+    def test_exact_window_boundary(self):
+        """Verify requests exactly window_size seconds before curr_end qualify in has_reqs and w_60_logs."""
+        base_time = datetime(2026, 3, 5, 12, 0, 0, tzinfo=timezone.utc)
+        # Entry at t=0 and entry at t=60. For window ending at t=60, t=0 is exactly 60s before.
+        entries = [
+            {"timestamp": base_time.isoformat(), "ip_hash": "boundary_ip", "endpoint": "/a",
+             "status_code": 200, "response_time": 50.0, "request_size": 100},
+            {"timestamp": (base_time + timedelta(seconds=60)).isoformat(), "ip_hash": "boundary_ip", "endpoint": "/b",
+             "status_code": 200, "response_time": 50.0, "request_size": 100},
+        ]
+        features = extract_features(entries, window_size=60.0, window_step=60.0)
+        # For window ending at t=60s: both t=0s and t=60s should qualify (60s <= 60.0)
+        w60 = [f for f in features if f["requests_per_ip_60s"] == 2]
+        self.assertTrue(len(w60) > 0, "Request at exactly window_size boundary should be included")
 
 
 if __name__ == "__main__":

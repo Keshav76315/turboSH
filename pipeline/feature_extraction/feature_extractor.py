@@ -127,6 +127,11 @@ def extract_features(
     Returns:
         list of feature row dicts.
     """
+    if window_size <= 0:
+        raise ValueError("window_size must be strictly positive")
+    if window_step <= 0:
+        raise ValueError("window_step must be strictly positive")
+
     if not entries:
         return []
 
@@ -148,9 +153,10 @@ def extract_features(
             except (KeyError, ValueError):
                 pass
 
-        # Fallback if logs have no valid timestamps: treat as single batch window
+        # Fallback if logs have no valid timestamps: treat as single batch window with conservative 10s count
         if not valid_logs:
             total_reqs = len(ip_logs)
+            fallback_10s = min(total_reqs, 1)
             latencies = [log.get("response_time", 0.0) for log in ip_logs]
             avg_lat = sum(latencies) / len(latencies) if latencies else 0.0
             max_lat = max(latencies) if latencies else 0.0
@@ -167,7 +173,7 @@ def extract_features(
 
             feature_rows.append({
                 "ip_hash": ip_hash,
-                "requests_per_ip_10s": total_reqs,
+                "requests_per_ip_10s": fallback_10s,
                 "requests_per_ip_60s": total_reqs,
                 "endpoint_entropy": ent,
                 "latency_spike": spike,
@@ -190,7 +196,7 @@ def extract_features(
             while curr_end <= t_last + timedelta(seconds=window_step):
                 # Only evaluate windows that contain requests in the 60s window
                 has_reqs = any(
-                    0 <= (curr_end - ts).total_seconds() < window_size
+                    0 <= (curr_end - ts).total_seconds() <= window_size
                     for ts, _ in valid_logs
                 )
                 if has_reqs:

@@ -157,16 +157,22 @@ def generate_dataset(output_file: str = DEFAULT_OUTPUT_FILE, num_normal: int = D
         data.append(generate_normal_traffic())
         
     print(f"Generating {num_attack} total attack records...")
-    for _ in range(num_attack // 4):
-        data.append(generate_ddos_burst())
-        data.append(generate_brute_force())
-        data.append(generate_request_flooding())
-        data.append(generate_latency_attack())
+    attack_generators = [
+        generate_ddos_burst,
+        generate_brute_force,
+        generate_request_flooding,
+        generate_latency_attack,
+    ]
+    for i in range(num_attack):
+        gen = attack_generators[i % len(attack_generators)]
+        data.append(gen())
         
     # Shuffle the dataset
     random.shuffle(data)
     
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    out_dir = os.path.dirname(output_file)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
     with open(output_file, mode='w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=COLUMNS)
         writer.writeheader()
