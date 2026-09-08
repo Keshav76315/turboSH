@@ -1,6 +1,7 @@
 package monitoring
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -56,11 +57,11 @@ func MetricsMiddleware() gin.HandlerFunc {
 
 		c.Next()
 
-		elapsed := float64(time.Since(start).Milliseconds())
+		elapsed := float64(time.Since(start).Microseconds()) / 1000.0
 		status := c.Writer.Status()
 		method := c.Request.Method
 
-		RequestsTotal.WithLabelValues(method, string(rune(status))).Inc() // Or just fmt.Sprintf("%d", status), but strconv.Itoa is better. Wait, I will use strconv.Itoa.
+		RequestsTotal.WithLabelValues(method, strconv.Itoa(status)).Inc()
 		RequestLatency.WithLabelValues(method).Observe(elapsed)
 	}
 }

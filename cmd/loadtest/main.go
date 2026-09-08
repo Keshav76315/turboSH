@@ -39,7 +39,10 @@ type PhaseStats struct {
 func doRequest(path string, clientIP string) Result {
 	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", targetURL+path, nil)
-	if err == nil && clientIP != "" {
+	if err != nil {
+		return Result{Err: err}
+	}
+	if clientIP != "" {
 		req.Header.Set("X-Forwarded-For", clientIP)
 	}
 

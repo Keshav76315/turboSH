@@ -14,6 +14,6 @@ func MetricsMiddleware() gin.HandlerFunc {
 
 		duration := time.Since(start)
 		status := c.Writer.Status()
-		RecordRequest(status, duration)
+		RecordRequest(c.Request.Method, status, duration)
 	}
 }

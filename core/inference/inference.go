@@ -58,9 +58,11 @@ func NewEngine(modelPath string) (*Engine, error) {
 	// We'll configure the session dynamically to discover types.
 
 	inputNames := []string{"float_input"}
-	outputNames := []string{"label"}
+	outputNames := []string{"label", "score_samples"}
 
-	// We expect the model to take a tensor of float32, and output a tensor of int64.
+	// We expect the model to take a tensor of float32, and output:
+	//   - "label": int64 tensor (-1 = anomaly, 1 = normal)
+	//   - "score_samples": float32 tensor (continuous decision_function values)
 	// Since we are running dynamically, we don't bind static shapes permanently.
 	session, err := ort.NewDynamicAdvancedSession(absPath, inputNames, outputNames, nil)
 	if err != nil {
@@ -86,6 +88,10 @@ func (e *Engine) Close() {
 
 // Predict takes structured request features, runs them through the Isolation Forest,
 // and returns a normalized anomaly score (0.0 to 1.0).
+//
+// The score is derived from the Isolation Forest's continuous decision_function
+// output (score_samples), NOT the binary label, enabling the full three-tier
+// defense: ALLOW (< 0.65), RATE_LIMIT (0.65–0.85), BLOCK (> 0.85).
 func (e *Engine) Predict(features RequestFeatures) (float64, error) {
 	if !e.modelLoaded {
 		return 0, fmt.Errorf("model is not loaded")
@@ -107,25 +113,36 @@ func (e *Engine) Predict(features RequestFeatures) (float64, error) {
 	}
 	defer inputTensor.Destroy()
 
-	// The output of IsolationForest in skl2onnx is an array of Int64 (-1 or 1)
-	outputData := make([]int64, 1)
-	outputShape := ort.NewShape(1, 1)
-
-	outputTensor, err := ort.NewTensor(outputShape, outputData)
+	// Output 1: "label" — int64 tensor (-1 or 1)
+	labelData := make([]int64, 1)
+	labelShape := ort.NewShape(1, 1)
+	labelTensor, err := ort.NewTensor(labelShape, labelData)
 	if err != nil {
-		return 0, fmt.Errorf("failed to create output tensor: %w", err)
+		return 0, fmt.Errorf("failed to create label output tensor: %w", err)
 	}
-	defer outputTensor.Destroy()
+	defer labelTensor.Destroy()
 
-	// Execute Inference
-	err = e.session.Run([]ort.ArbitraryTensor{inputTensor}, []ort.ArbitraryTensor{outputTensor})
+	// Output 2: "score_samples" — float32 tensor (continuous decision_function)
+	scoreData := make([]float32, 1)
+	scoreShape := ort.NewShape(1, 1)
+	scoreTensor, err := ort.NewTensor(scoreShape, scoreData)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create score output tensor: %w", err)
+	}
+	defer scoreTensor.Destroy()
+
+	// Execute Inference with both outputs
+	err = e.session.Run(
+		[]ort.ArbitraryTensor{inputTensor},
+		[]ort.ArbitraryTensor{labelTensor, scoreTensor},
+	)
 	if err != nil {
 		return 0, fmt.Errorf("inference run failed: %w", err)
 	}
 
-	// Extract the raw score and normalize it
-	rawScore := outputTensor.GetData()[0]
-	score := NormalizeScore(rawScore)
+	// Extract the continuous decision_function score and normalize to [0.0, 1.0]
+	decisionFuncValue := float64(scoreTensor.GetData()[0])
+	score := NormalizeScore(decisionFuncValue)
 
 	return score, nil
 }

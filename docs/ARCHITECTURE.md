@@ -332,15 +332,19 @@ turboSH/
 │   ├── scheduler/           │  Request scheduling & rate limiting
 │   ├── cache/               │  LRU cache (Anzal)
 │   ├── security/            │  Traffic control rules
+│   ├── inference/           │  ONNX ML inference engine
 │   └── decision/            │  ML score → action mapping
 │
 ├── pipeline/                ← Anzal
 │   ├── logging/             │  Traffic log capture
+│   ├── monitoring/          │  Prometheus metrics & middleware
 │   ├── feature_extraction/  │  Log → feature vectors
 │   └── dataset_builder/     │  Feature vectors → CSV datasets
 │
 ├── ml/                      ← Keshav
 │   ├── training/            │  Model training scripts
+│   ├── export/              │  ONNX model export
+│   ├── data/                │  Synthetic data generation
 │   └── evaluation/          │  Model evaluation & reports
 │
 ├── models/                  ← Keshav (generated artifacts)

@@ -62,10 +62,9 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 	var mlProtection *inference.MLProtection
 	err = inference.Initialize(cfg.ONNXSharedLibraryPath) // e.g., /usr/lib/onnxruntime.so
 	if err == nil {
-		modelPath := "models/anomaly_model.onnx"
-		engine, err := inference.NewEngine(modelPath)
+		engine, err := inference.NewEngine(cfg.ModelPath)
 		if err == nil {
-			de, err := decision.NewThresholdPolicy(0.85, 0.65)
+			de, err := decision.NewThresholdPolicy(cfg.BlockThreshold, cfg.RateLimitThreshold)
 			if err != nil {
 				log.Printf("[setup] Error creating ThresholdPolicy: %v. Running in static-rule mode.", err)
 			} else {
@@ -110,7 +109,12 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 //
 // Request flow:
 //
-//	Client → Scheduler → RateLimiter → TrafficRules → ML Inference → Cache → Logger → Proxy
+//	Client → Metrics → Scheduler → Traffic Logger → RateLimiter → TrafficRules → ML Inference → Cache → Proxy
+//
+// Design notes:
+//   - Traffic Logger wraps downstream handlers so ALL traffic (allowed, cached, throttled, blocked) is logged
+//   - Traffic Logger feeds all response metrics (status, latency) back to ML via RecordBackendResponse in real-time
+//   - ML Inference runs before Cache so it evaluates every request in real time and enforces block/throttle actions
 func SetupMiddleware(router *gin.Engine, components *Components) {
 	if components == nil {
 		return
@@ -125,29 +129,33 @@ func SetupMiddleware(router *gin.Engine, components *Components) {
 		router.Use(components.Scheduler.Middleware())
 	}
 
-	// 2. Rate limiter — per-IP token bucket
+	// 2. Traffic logger (EPIC 4 — Anzal)
+	// Wraps downstream handlers so it captures all requests — allowed, rate-limited,
+	// blocked by ML or static rules, and cache hits alike.
+	// Feeds response metrics back to MLProtection.RecordBackendResponse in real time.
+	if components.TrafficLogger != nil {
+		router.Use(components.TrafficLogger.Middleware())
+	}
+
+	// 3. Rate limiter — per-IP token bucket
 	if components.RateLimiter != nil {
 		router.Use(components.RateLimiter.Middleware())
 	}
 
-	// 3. Traffic rules — burst detection + endpoint abuse
+	// 4. Traffic rules — burst detection + endpoint abuse
 	if components.TrafficRules != nil {
 		router.Use(components.TrafficRules.Middleware())
 	}
 
-	// 4. Feature Extraction + ML Inference + Decision Engine (EPIC 7)
-	// MUST run before cache so the ML engine sees all requests, even repetitive ones.
+	// 5. Feature Extraction + ML Inference + Decision Engine (EPIC 7)
+	// Runs before cache so the ML engine sees all requests, even repetitive ones.
+	// ML actively blocks (403) or rate-limits (429) suspicious traffic in real-time.
 	if components.MLProtection != nil {
 		router.Use(components.MLProtection.Middleware())
 	}
 
-	// 5. Cache layer (EPIC 3 — Anzal)
+	// 6. Cache layer (EPIC 3 — Anzal)
 	if components.Cache != nil {
 		router.Use(components.Cache.Middleware())
-	}
-
-	// 6. Traffic logger (EPIC 4 — Anzal)
-	if components.TrafficLogger != nil {
-		router.Use(components.TrafficLogger.Middleware())
 	}
 }

@@ -31,14 +31,23 @@ func (f RequestFeatures) ToArray() []float32 {
 	}
 }
 
-// NormalizeScore takes the raw ONNX Isolation Forest output
-// (1 = normal, -1 = anomaly) and converts it to a 0.0 to 1.0 scale
-// where 1.0 is highest anomaly risk, to be usable by DecisionEngine.
-func NormalizeScore(rawScore int64) float64 {
-	if rawScore == -1 {
-		return 1.0 // Maximum anomaly
-	}
-	return 0.0 // Normal
+// NormalizeScore converts the raw Isolation Forest decision_function output
+// to a 0.0–1.0 anomaly score using a sigmoid transformation.
+//
+// Isolation Forest decision_function semantics:
+//   - Negative values → anomalous (further negative = more anomalous)
+//   - Positive values → normal (further positive = more normal)
+//
+// The sigmoid maps this to:
+//   - Large negative → ~1.0 (high anomaly risk, triggers BLOCK)
+//   - Near zero      → ~0.5 (moderate risk, triggers RATE_LIMIT)
+//   - Large positive → ~0.0 (normal traffic, ALLOW)
+//
+// The steepness factor k=5 provides good separation around the decision boundary.
+func NormalizeScore(decisionFuncValue float64) float64 {
+	score := 1.0 / (1.0 + math.Exp(5.0*decisionFuncValue))
+	// Clamp to [0.0, 1.0] for safety against floating-point edge cases
+	return math.Max(0.0, math.Min(1.0, score))
 }
 
 // ShannonEntropy computes the entropy of a given array of counts.

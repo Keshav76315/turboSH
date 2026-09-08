@@ -116,6 +116,8 @@ The following items from the initial audit were verified as **false positives or
 - **Issue:** `build_dataset.py` generates `datasets/traffic_dataset.csv` from real logs, but `train_model.py` hardcodes `datasets/synthetic_traffic_dataset.csv`.
 - **Impact:** Production models are trained solely on synthetic distributions and never on observed traffic logs.
 
+# no issue on 4.4 .
+
 ### 4.5 — ONNX export script hardcodes Isolation Forest model path
 
 - **File:** [`ml/export/export_onnx.py:L8`](ml/export/export_onnx.py#L8)

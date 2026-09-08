@@ -14,7 +14,7 @@ var (
 			Name: "turbosh_requests_total",
 			Help: "Total HTTP requests processed by turboSH.",
 		},
-		[]string{"status"},
+		[]string{"method", "status"},
 	)
 
 	RequestDuration = prometheus.NewHistogram(
@@ -93,8 +93,8 @@ func Register() {
 	})
 }
 
-func RecordRequest(statusCode int, duration time.Duration) {
-	RequestsTotal.WithLabelValues(strconv.Itoa(statusCode)).Inc()
+func RecordRequest(method string, statusCode int, duration time.Duration) {
+	RequestsTotal.WithLabelValues(method, strconv.Itoa(statusCode)).Inc()
 	RequestDuration.Observe(duration.Seconds())
 }
 

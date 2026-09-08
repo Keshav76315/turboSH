@@ -48,6 +48,7 @@ type Config struct {
 
 	// ML Inference settings
 	ONNXSharedLibraryPath string // Path to the downloaded ONNX Runtime shared library (.so, .dll, .dylib)
+	ModelPath             string // Path to the ONNX anomaly model file
 }
 
 // Load reads configuration from environment variables with sensible defaults.
@@ -120,6 +121,7 @@ func Load() *Config {
 
 		// ML Inference
 		ONNXSharedLibraryPath: envOrDefault("TURBOSH_ONNX_LIB_PATH", ""),
+		ModelPath:             envOrDefault("TURBOSH_MODEL_PATH", "models/anomaly_model.onnx"),
 	}
 }
 
