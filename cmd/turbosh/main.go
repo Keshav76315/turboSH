@@ -1,9 +1,15 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -29,12 +35,17 @@ func main() {
 	monitoring.Register()
 
 	// 5.5: Run Prometheus metrics on dedicated internal listener rather than public API router
+	var metricsSrv *http.Server
 	if cfg.MetricsEnabled {
+		metricsMux := http.NewServeMux()
+		metricsMux.Handle("/metrics", promhttp.Handler())
+		metricsSrv = &http.Server{
+			Addr:    cfg.MetricsPort,
+			Handler: metricsMux,
+		}
 		go func() {
-			metricsMux := http.NewServeMux()
-			metricsMux.Handle("/metrics", promhttp.Handler())
 			log.Printf("[monitoring] Internal Prometheus metrics listening on %s/metrics", cfg.MetricsPort)
-			if err := http.ListenAndServe(cfg.MetricsPort, metricsMux); err != nil && err != http.ErrServerClosed {
+			if err := metricsSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				log.Printf("[monitoring] ERROR: Internal metrics server failed: %v", err)
 			}
 		}()
@@ -64,6 +75,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to initialize middleware components: %v", err)
 	}
+	// 9.1 & 9.2: Ensure CacheStop, TrafficLogger, and ONNX resources are cleanly closed on exit
+	defer components.Close()
 
 	if components.Scheduler != nil {
 		monitoring.SchedulerCapacity.Set(float64(cfg.MaxConcurrent))
@@ -73,17 +86,48 @@ func main() {
 
 	router.NoRoute(rp.Handler())
 
-	log.Printf("turboSH is running on %s → %s", cfg.ListenPort, rp.TargetURL())
+	srv := &http.Server{
+		Addr:    cfg.ListenPort,
+		Handler: router,
+	}
 
-	// 5.6: TLS / HTTPS termination configuration
-	if cfg.TLSEnabled {
-		log.Printf("[security] TLS termination enabled (Cert: %s, Key: %s)", cfg.TLSCertFile, cfg.TLSKeyFile)
-		if err := router.RunTLS(cfg.ListenPort, cfg.TLSCertFile, cfg.TLSKeyFile); err != nil {
-			log.Fatalf("Server failed with TLS: %v", err)
+	// Run reverse proxy in background goroutine to allow graceful signal trapping
+	go func() {
+		log.Printf("turboSH is running on %s → %s", cfg.ListenPort, rp.TargetURL())
+		if cfg.TLSEnabled {
+			log.Printf("[security] TLS termination enabled (Cert: %s, Key: %s)", cfg.TLSCertFile, cfg.TLSKeyFile)
+			if err := srv.ListenAndServeTLS(cfg.TLSCertFile, cfg.TLSKeyFile); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Fatalf("Server failed with TLS: %v", err)
+			}
+		} else {
+			if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Fatalf("Server failed: %v", err)
+			}
 		}
+	}()
+
+	// 9.2: Graceful shutdown on SIGINT / SIGTERM
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-quit
+	log.Printf("[shutdown] Received signal %v, initiating graceful shutdown...", sig)
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("[shutdown] Proxy server forced shutdown: %v", err)
 	} else {
-		if err := router.Run(cfg.ListenPort); err != nil {
-			log.Fatalf("Server failed: %v", err)
+		log.Println("[shutdown] Proxy server stopped gracefully.")
+	}
+
+	if metricsSrv != nil {
+		if err := metricsSrv.Shutdown(shutdownCtx); err != nil {
+			log.Printf("[shutdown] Metrics server forced shutdown: %v", err)
+		} else {
+			log.Println("[shutdown] Metrics server stopped gracefully.")
 		}
 	}
+
+	log.Println("[shutdown] turboSH shutdown complete.")
 }

@@ -47,6 +47,8 @@ type TrafficLogger struct {
 	file         *os.File
 	mu           sync.Mutex
 	closed       bool
+	flushStop    chan struct{}
+	flushDone    chan struct{}
 	cfg          *config.Config
 	mlProtection MLMetricsRecorder // Optional reference to feed metrics back to ML pipeline
 }
@@ -79,13 +81,20 @@ func NewTrafficLogger(cfg *config.Config, mlp MLMetricsRecorder) (*TrafficLogger
 		bufferSize = 4096
 	}
 
-	return &TrafficLogger{
+	tl := &TrafficLogger{
 		writer:       bufio.NewWriterSize(file, bufferSize),
 		file:         file,
 		closed:       false,
+		flushStop:    make(chan struct{}),
+		flushDone:    make(chan struct{}),
 		cfg:          cfg,
 		mlProtection: mlp,
-	}, nil
+	}
+
+	// 9.3: Automatic periodic flush so low-volume traffic is persisted without sitting in buffer indefinitely
+	go tl.startPeriodicFlush(1 * time.Second)
+
+	return tl, nil
 }
 
 // dirOf returns the directory portion of a file path.
@@ -158,6 +167,22 @@ func (tl *TrafficLogger) writeEntry(entry TrafficLogEntry) {
 	// Removed: tl.writer.Flush() - logs are now flushed periodically or on close
 }
 
+// startPeriodicFlush periodically flushes the buffer to disk at the specified interval.
+func (tl *TrafficLogger) startPeriodicFlush(interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	defer close(tl.flushDone)
+
+	for {
+		select {
+		case <-ticker.C:
+			_ = tl.Flush()
+		case <-tl.flushStop:
+			return
+		}
+	}
+}
+
 // Flush writes any buffered data to the underlying file.
 // Call this periodically or on shutdown to ensure all logs are persisted.
 func (tl *TrafficLogger) Flush() error {
@@ -169,22 +194,39 @@ func (tl *TrafficLogger) Flush() error {
 	return tl.writer.Flush()
 }
 
-// Close flushes and closes the log file safely.
+// Close flushes and closes the log file safely, stopping any background flusher.
 func (tl *TrafficLogger) Close() error {
 	tl.mu.Lock()
-	defer tl.mu.Unlock()
-
 	if tl.closed { // Prevent closing multiple times
+		tl.mu.Unlock()
 		return nil
 	}
 	tl.closed = true // Mark as closed
-
-	// Attempt to flush before closing. If flush fails, still try to close the file.
-	if err := tl.writer.Flush(); err != nil {
-		tl.file.Close() // attempt to close even if flush fails
-		return err
+	if tl.flushStop != nil {
+		close(tl.flushStop)
 	}
-	return tl.file.Close()
+	tl.mu.Unlock()
+
+	// Wait for the periodic flush goroutine to exit
+	if tl.flushDone != nil {
+		<-tl.flushDone
+	}
+
+	tl.mu.Lock()
+	defer tl.mu.Unlock()
+
+	var flushErr error
+	if tl.writer != nil {
+		flushErr = tl.writer.Flush()
+	}
+	var closeErr error
+	if tl.file != nil {
+		closeErr = tl.file.Close()
+	}
+	if flushErr != nil {
+		return flushErr
+	}
+	return closeErr
 }
 
 // ---------- helpers ----------

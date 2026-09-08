@@ -34,7 +34,7 @@ type Components struct {
 	MLProtection     *inference.MLProtection // EPIC 7: ONNX inference middleware
 }
 
-// Close gracefully stops all background cleanup goroutines and flushes loggers.
+// Close gracefully stops all background cleanup goroutines, flushes loggers, and destroys ONNX resources.
 func (c *Components) Close() {
 	if c.CacheStop != nil {
 		close(c.CacheStop)
@@ -57,8 +57,12 @@ func (c *Components) Close() {
 		c.PollerStop = nil
 	}
 	if c.TrafficLogger != nil {
-		c.TrafficLogger.Close()
+		_ = c.TrafficLogger.Close()
 	}
+	if c.MLProtection != nil {
+		c.MLProtection.Close()
+	}
+	inference.Destroy()
 }
 
 // NewComponents creates all middleware components from the given config.
@@ -115,7 +119,11 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 	}
 
 	// Create traffic logger
-	trafficLogger, err := logging.NewTrafficLogger(cfg, mlProtection)
+	var mlRecorder logging.MLMetricsRecorder
+	if mlProtection != nil {
+		mlRecorder = mlProtection
+	}
+	trafficLogger, err := logging.NewTrafficLogger(cfg, mlRecorder)
 	if err != nil {
 		close(cacheStop)
 		close(rateLimiterStop)

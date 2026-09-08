@@ -151,6 +151,9 @@ func (mlp *MLProtection) StartCleanupManager(interval time.Duration) chan struct
 // RecordBackendResponse is called by the traffic logger after a request completes
 // to feed actual response metrics back into the ML feature window.
 func (mlp *MLProtection) RecordBackendResponse(ip string, statusCode int, latencyMs float64) {
+	if mlp == nil {
+		return
+	}
 	mlp.mu.Lock()
 	defer mlp.mu.Unlock()
 
@@ -314,5 +317,17 @@ func (mlp *MLProtection) Middleware() gin.HandlerFunc {
 			log.Printf("[ML Protection] ❓ UNKNOWN ACTION %s for %s (Score: %.2f) - Defaulting to ALLOW", action, ipHash, score)
 			c.Next()
 		}
+	}
+}
+
+// Close releases the underlying inference engine session resources.
+func (m *MLProtection) Close() {
+	if m == nil {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.engine != nil {
+		m.engine.Close()
 	}
 }

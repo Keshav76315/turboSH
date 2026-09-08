@@ -35,6 +35,7 @@ The following issues have been addressed and verified in the codebase:
 - ✅ **Closed (Section 5):** Security & Privacy Vulnerabilities (§5.1 – §5.8 fixed, audited, and tested).
 - ✅ **Closed (Section 7):** Memory Leaks & Concurrency Issues (§7.1 – §7.7 fixed, unit tested, race-detector verified).
 - ✅ **Closed (Section 8):** Monitoring, Metrics & Grafana Conflicts (§8.1 – §8.4 fixed, PromQL aligned, duplicate configs pruned, metrics consolidated).
+- ✅ **Closed (Section 9):** Cache & Resource Management Flaws (§9.1 – §9.3 fixed, graceful shutdown, CacheStop closing, and automatic log flushing).
 
 ---
 
@@ -326,17 +327,20 @@ The following items from the initial audit were verified as **false positives or
 
 ### 9.1 — `CacheStop` channel never closed on application shutdown
 
+- **Status:** Closed
 - **Files:** [`core/proxy/middleware.go:L103`](core/proxy/middleware.go#L103) and [`cmd/turbosh/main.go`](cmd/turbosh/main.go)
 - **Issue:** `components.CacheStop` channel is created by `StartTTLManager` but never closed in `main.go`.
 
 ### 9.2 — Missing graceful shutdown in `cmd/turbosh/main.go`
 
+- **Status:** Closed
 - **File:** [`cmd/turbosh/main.go:L69`](cmd/turbosh/main.go#L69)
 - **Issue:** Server executes `router.Run(...)` directly without trapping `SIGINT`/`SIGTERM`.
 - **Impact:** On termination, `TrafficLogger.Close()` is not called (losing up to 4KB buffered logs), and ONNX runtime sessions are not cleanly released via `inference.Destroy()`.
 
 ### 9.3 — Missing automatic periodic flush in `TrafficLogger`
 
+- **Status:** Closed
 - **File:** [`pipeline/logging/traffic_logger.go:L156`](pipeline/logging/traffic_logger.go#L156)
 - **Comment:** `// Removed: tl.writer.Flush() - logs are now flushed periodically or on close`
 - **Issue:** No periodic flush goroutine exists. Low-volume traffic can sit in the 4KB buffer indefinitely.
