@@ -153,3 +153,23 @@ func (tr *TrafficRules) Cleanup() {
 		}
 	}
 }
+
+// StartCleanupManager launches a background goroutine that periodically purges
+// expired burst and endpoint tracking entries. Returns a stop channel.
+func (tr *TrafficRules) StartCleanupManager(interval time.Duration) chan struct{} {
+	stop := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				tr.Cleanup()
+			case <-stop:
+				return
+			}
+		}
+	}()
+	return stop
+}
+

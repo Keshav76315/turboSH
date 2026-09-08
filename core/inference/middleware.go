@@ -22,16 +22,20 @@ type BackendResponse struct {
 	LatencyMs  float64
 }
 
+type requestRecord struct {
+	Timestamp time.Time
+	Endpoint  string
+}
+
 // MLProtection encapsulates the inference engine, decision engine,
 // and moving windows needed to compute live features.
 type MLProtection struct {
 	engine         *Engine
 	decisionEngine decision.DecisionEngine
 
-	// Feature tracking state
-	requestTimes map[string][]time.Time
-	endpoints    map[string]map[string]int    // IP -> Endpoint -> Count
-	ipStats      map[string][]BackendResponse // IP -> Recent Responses
+	// Feature tracking state (windowed per IP)
+	requests map[string][]requestRecord   // IP -> Windowed Requests
+	ipStats  map[string][]BackendResponse // IP -> Recent Responses
 
 	// Moving window duration constants
 	window10s time.Duration
@@ -49,26 +53,29 @@ func NewMLProtection(cfg *config.Config, engine *Engine, de decision.DecisionEng
 		cfg:            cfg,
 		engine:         engine,
 		decisionEngine: de,
-		requestTimes:   make(map[string][]time.Time),
-		endpoints:      make(map[string]map[string]int),
+		requests:       make(map[string][]requestRecord),
 		ipStats:        make(map[string][]BackendResponse),
 		window10s:      10 * time.Second,
 		window60s:      60 * time.Second,
 	}
 }
 
-// prune records older than the maximum window (60s)
+// prune records older than the maximum window (60s) for a single IP.
 func (mlp *MLProtection) prune(ip string, now time.Time) {
-	times := mlp.requestTimes[ip]
 	cutoff60 := now.Add(-mlp.window60s)
 
-	var validTimes []time.Time
-	for _, t := range times {
-		if t.After(cutoff60) {
-			validTimes = append(validTimes, t)
+	reqs := mlp.requests[ip]
+	var validReqs []requestRecord
+	for _, r := range reqs {
+		if r.Timestamp.After(cutoff60) {
+			validReqs = append(validReqs, r)
 		}
 	}
-	mlp.requestTimes[ip] = validTimes
+	if len(validReqs) > 0 {
+		mlp.requests[ip] = validReqs
+	} else {
+		delete(mlp.requests, ip)
+	}
 
 	// Prune IP stats as well
 	stats := mlp.ipStats[ip]
@@ -78,13 +85,67 @@ func (mlp *MLProtection) prune(ip string, now time.Time) {
 			validStats = append(validStats, s)
 		}
 	}
-	mlp.ipStats[ip] = validStats
-
-	if len(validTimes) == 0 && len(validStats) == 0 {
-		delete(mlp.requestTimes, ip)
-		delete(mlp.endpoints, ip)
+	if len(validStats) > 0 {
+		mlp.ipStats[ip] = validStats
+	} else {
 		delete(mlp.ipStats, ip)
 	}
+}
+
+// PruneAll iterates through all tracked IPs and purges entries older than the 60s window.
+// This prevents memory accumulation from abandoned single-request client IPs.
+func (mlp *MLProtection) PruneAll(now time.Time) {
+	mlp.mu.Lock()
+	defer mlp.mu.Unlock()
+
+	cutoff60 := now.Add(-mlp.window60s)
+
+	for ip, reqs := range mlp.requests {
+		var valid []requestRecord
+		for _, r := range reqs {
+			if r.Timestamp.After(cutoff60) {
+				valid = append(valid, r)
+			}
+		}
+		if len(valid) == 0 {
+			delete(mlp.requests, ip)
+		} else {
+			mlp.requests[ip] = valid
+		}
+	}
+
+	for ip, stats := range mlp.ipStats {
+		var validStats []BackendResponse
+		for _, s := range stats {
+			if s.Timestamp.After(cutoff60) {
+				validStats = append(validStats, s)
+			}
+		}
+		if len(validStats) == 0 {
+			delete(mlp.ipStats, ip)
+		} else {
+			mlp.ipStats[ip] = validStats
+		}
+	}
+}
+
+// StartCleanupManager launches a background goroutine that periodically calls PruneAll.
+// Returns a stop channel.
+func (mlp *MLProtection) StartCleanupManager(interval time.Duration) chan struct{} {
+	stop := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				mlp.PruneAll(time.Now())
+			case <-stop:
+				return
+			}
+		}
+	}()
+	return stop
 }
 
 // RecordBackendResponse is called by the traffic logger after a request completes
@@ -110,30 +171,34 @@ func (mlp *MLProtection) recordRequest(ip string, endpoint string) RequestFeatur
 	defer mlp.mu.Unlock()
 
 	now := time.Now()
-	mlp.requestTimes[ip] = append(mlp.requestTimes[ip], now)
-
-	if mlp.endpoints[ip] == nil {
-		mlp.endpoints[ip] = make(map[string]int)
-	}
-	mlp.endpoints[ip][endpoint]++
+	mlp.requests[ip] = append(mlp.requests[ip], requestRecord{
+		Timestamp: now,
+		Endpoint:  endpoint,
+	})
 
 	mlp.prune(ip, now)
 
-	// Calculate Requests per 10s and 60s
+	// Calculate Requests per 10s, 60s, and windowed Endpoint Entropy
 	cutoff10 := now.Add(-mlp.window10s)
+	cutoff60 := now.Add(-mlp.window60s)
 
 	var reqs10s int
-	var reqs60s int = len(mlp.requestTimes[ip])
+	var reqs60s int
+	endpointCounts := make(map[string]int)
 
-	for _, t := range mlp.requestTimes[ip] {
-		if t.After(cutoff10) {
+	for _, r := range mlp.requests[ip] {
+		if r.Timestamp.After(cutoff10) {
 			reqs10s++
+		}
+		if r.Timestamp.After(cutoff60) {
+			reqs60s++
+			endpointCounts[r.Endpoint]++
 		}
 	}
 
-	// Calculate Endpoint Entropy
-	counts := make([]int, 0, len(mlp.endpoints[ip]))
-	for _, c := range mlp.endpoints[ip] {
+	// Calculate Endpoint Entropy strictly over requests in the 60s window
+	counts := make([]int, 0, len(endpointCounts))
+	for _, c := range endpointCounts {
 		counts = append(counts, c)
 	}
 	entropy := ShannonEntropy(counts)

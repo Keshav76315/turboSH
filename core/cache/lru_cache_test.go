@@ -239,3 +239,77 @@ func TestConcurrencyStress(t *testing.T) {
 	// If we get here without a panic or deadlock, concurrency is safe
 	t.Log("✅ Concurrency stress test passed — no panics, deadlocks, or race conditions")
 }
+
+// Test 7: Deep copy isolation on Set and Get (7.7)
+func TestDeepCopyIsolation(t *testing.T) {
+	cache := NewLRUCache(10)
+
+	orig := &CachedResponse{
+		StatusCode: 200,
+		Headers:    map[string][]string{"X-Test": {"val1"}},
+		Body:       []byte("original-body"),
+	}
+
+	cache.Set("key1", orig, 0)
+
+	// Mutate original struct after Set
+	orig.Headers["X-Test"][0] = "mutated"
+	orig.Body[0] = 'X'
+
+	retrieved, found := cache.Get("key1")
+	if !found {
+		t.Fatal("Expected key1 to be in cache")
+	}
+
+	if retrieved.Headers["X-Test"][0] != "val1" {
+		t.Fatalf("Deep copy failed on Set: cached header was mutated to %s", retrieved.Headers["X-Test"][0])
+	}
+	if string(retrieved.Body) != "original-body" {
+		t.Fatalf("Deep copy failed on Set: cached body was mutated to %s", string(retrieved.Body))
+	}
+
+	// Mutate retrieved copy
+	retrieved.Body[0] = 'Z'
+	retrieved.Headers["X-Test"][0] = "mutated-again"
+
+	retrievedAgain, found := cache.Get("key1")
+	if !found {
+		t.Fatal("Expected key1 to be in cache")
+	}
+	if string(retrievedAgain.Body) != "original-body" {
+		t.Fatalf("Deep copy failed on Get: cached body was mutated to %s", string(retrievedAgain.Body))
+	}
+	if retrievedAgain.Headers["X-Test"][0] != "val1" {
+		t.Fatalf("Deep copy failed on Get: cached header was mutated to %s", retrievedAgain.Headers["X-Test"][0])
+	}
+	t.Log("✅ Deep copy isolation verified on both Set() and Get()")
+}
+
+// Test 8: Memory accounting decrements on TTL expiration (7.1)
+func TestTTLMemoryDecrement(t *testing.T) {
+	cache := NewLRUCache(10, 1024*1024)
+
+	resp := newResponse(200)
+	cache.Set("expire-soon", resp, 50*time.Millisecond)
+
+	memBefore := cache.CurrentMemory()
+	if memBefore <= 0 {
+		t.Fatalf("Expected CurrentMemory > 0, got %d", memBefore)
+	}
+
+	// Wait for TTL expiration
+	time.Sleep(75 * time.Millisecond)
+
+	// Expired Get should decrement memory
+	_, found := cache.Get("expire-soon")
+	if found {
+		t.Fatal("Expected entry to have expired")
+	}
+
+	memAfter := cache.CurrentMemory()
+	if memAfter != 0 {
+		t.Fatalf("Expected CurrentMemory to be 0 after expiration, got %d", memAfter)
+	}
+	t.Log("✅ Memory decremented correctly on TTL expiration")
+}
+

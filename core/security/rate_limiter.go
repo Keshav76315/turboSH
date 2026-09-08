@@ -108,3 +108,23 @@ func (rl *RateLimiter) Cleanup(maxAge time.Duration) {
 		}
 	}
 }
+
+// StartCleanupManager launches a background goroutine that periodically calls Cleanup
+// to evict inactive client buckets. Returns a stop channel to terminate the background worker.
+func (rl *RateLimiter) StartCleanupManager(interval time.Duration, maxAge time.Duration) chan struct{} {
+	stop := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				rl.Cleanup(maxAge)
+			case <-stop:
+				return
+			}
+		}
+	}()
+	return stop
+}
+

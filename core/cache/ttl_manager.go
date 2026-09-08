@@ -40,8 +40,8 @@ func (c *LRUCache) removeExpired() {
 		entry := element.Value.(*entry)
 
 		if !entry.value.Expiry.IsZero() && now.After(entry.value.Expiry) {
-			c.order.Remove(element)
-			delete(c.items, entry.key)
+			c.removeElement(element)
+			c.metrics.RecordEviction()
 		}
 
 		element = prev

@@ -58,13 +58,52 @@ func NewLRUCache(capacity int, maxMemory ...int) *LRUCache {
 	}
 }
 
-// Get retrieves a cached response by key. Returns nil, false if the key is not found or has expired. Moves accessed entries to the front (most recently used).
+// copyResponse performs a deep copy of a CachedResponse (including Headers map and Body slice)
+// to prevent data races and unintended mutations across concurrent requests.
+func copyResponse(src *CachedResponse) *CachedResponse {
+	if src == nil {
+		return nil
+	}
+	dst := &CachedResponse{
+		StatusCode: src.StatusCode,
+		Expiry:     src.Expiry,
+	}
+	if src.Headers != nil {
+		dst.Headers = make(map[string][]string, len(src.Headers))
+		for k, v := range src.Headers {
+			vCopy := make([]string, len(v))
+			copy(vCopy, v)
+			dst.Headers[k] = vCopy
+		}
+	}
+	if src.Body != nil {
+		dst.Body = make([]byte, len(src.Body))
+		copy(dst.Body, src.Body)
+	}
+	return dst
+}
+
+// removeElement unlinks an element from the LRU list, decrements currentMemory,
+// and deletes it from the items map. Must be called with c.mu write lock held.
+func (c *LRUCache) removeElement(element *list.Element) {
+	if element == nil {
+		return
+	}
+	c.order.Remove(element)
+	ent := element.Value.(*entry)
+	c.currentMemory -= ent.size
+	delete(c.items, ent.key)
+}
+
+// Get retrieves a cached response by key. Returns nil, false if the key is not found or has expired.
+// Moves accessed entries to the front (most recently used).
+// Uses a single write lock to avoid lock bouncing and redundant map lookups.
 func (c *LRUCache) Get(key string) (*CachedResponse, bool) {
-	// Try a read lock first for the lookup
-	c.mu.RLock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	element, found := c.items[key]
 	if !found {
-		c.mu.RUnlock()
 		c.metrics.RecordMiss()
 		return nil, false
 	}
@@ -73,54 +112,27 @@ func (c *LRUCache) Get(key string) (*CachedResponse, bool) {
 
 	// Check if the entry has expired
 	if !ent.value.Expiry.IsZero() && time.Now().After(ent.value.Expiry) {
-		c.mu.RUnlock()
-		// Expired — need write lock to remove it
-		c.mu.Lock()
-		// Re-check after acquiring write lock (another goroutine may have removed or updated it)
-		if elem2, found2 := c.items[key]; found2 {
-			ent2 := elem2.Value.(*entry)
-			if !ent2.value.Expiry.IsZero() && time.Now().After(ent2.value.Expiry) {
-				c.order.Remove(elem2)
-				delete(c.items, key)
-				c.mu.Unlock()
-				c.metrics.RecordMiss()
-				c.metrics.RecordEviction()
-				return nil, false
-			}
-			// It was updated while waiting for the lock, so return the valid entry
-			c.mu.Unlock()
-			return ent2.value, true
-		}
-		c.mu.Unlock()
+		c.removeElement(element)
 		c.metrics.RecordMiss()
+		c.metrics.RecordEviction()
 		return nil, false
 	}
-	c.mu.RUnlock()
 
-	// Move to front — needs write lock
-	c.mu.Lock()
-	// Re-check the element is still in the list and get a fresh reference
-	if elemFresh, foundFresh := c.items[key]; foundFresh {
-		c.order.MoveToFront(elemFresh)
-		freshEnt := elemFresh.Value.(*entry)
-		c.mu.Unlock()
-		c.metrics.RecordHit()
-		return freshEnt.value, true
-	}
-	c.mu.Unlock()
-	c.metrics.RecordMiss()
-	return nil, false
+	c.order.MoveToFront(element)
+	c.metrics.RecordHit()
+	return copyResponse(ent.value), true
 }
 
 // Set stores a response in the cache with a TTL.
 // A zero TTL means the entry never expires.
 // If the key already exists, its value and expiry are updated.
 // If the cache is full, the least recently used entry is evicted.
+// Performs a deep copy of the cached response to guarantee data integrity.
 func (c *LRUCache) Set(key string, value *CachedResponse, ttl time.Duration) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	valCopy := *value
+	valCopy := copyResponse(value)
 	// Compute expiry from TTL
 	if ttl > 0 {
 		valCopy.Expiry = time.Now().Add(ttl)
@@ -128,13 +140,13 @@ func (c *LRUCache) Set(key string, value *CachedResponse, ttl time.Duration) err
 		valCopy.Expiry = time.Time{} // zero = never expires
 	}
 
-	newSize := entrySize(key, &valCopy)
+	newSize := entrySize(key, valCopy)
 
 	// Update existing entry
 	if element, found := c.items[key]; found {
 		old := element.Value.(*entry)
 		c.currentMemory += newSize - old.size // adjust delta
-		old.value = &valCopy
+		old.value = valCopy
 		old.size = newSize
 		c.order.MoveToFront(element)
 		return nil
@@ -142,7 +154,7 @@ func (c *LRUCache) Set(key string, value *CachedResponse, ttl time.Duration) err
 
 	// Insert new entry
 	c.currentMemory += newSize
-	element := c.order.PushFront(&entry{key, &valCopy, newSize})
+	element := c.order.PushFront(&entry{key, valCopy, newSize})
 	c.items[key] = element
 
 	// Evict if over entry capacity
@@ -166,10 +178,7 @@ func (c *LRUCache) Delete(key string) error {
 	defer c.mu.Unlock()
 
 	if element, found := c.items[key]; found {
-		ent := element.Value.(*entry)
-		c.currentMemory -= ent.size
-		c.order.Remove(element)
-		delete(c.items, ent.key)
+		c.removeElement(element)
 	}
 
 	return nil
@@ -180,10 +189,7 @@ func (c *LRUCache) Delete(key string) error {
 func (c *LRUCache) evict() {
 	lastElement := c.order.Back()
 	if lastElement != nil {
-		c.order.Remove(lastElement)
-		ent := lastElement.Value.(*entry)
-		c.currentMemory -= ent.size
-		delete(c.items, ent.key)
+		c.removeElement(lastElement)
 		c.metrics.RecordEviction()
 	}
 }

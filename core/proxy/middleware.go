@@ -20,14 +20,45 @@ import (
 
 // Components holds all the middleware components for the pipeline.
 type Components struct {
-	Config        *config.Config
-	Scheduler     *scheduler.Scheduler
-	RateLimiter   *security.RateLimiter
-	TrafficRules  *security.TrafficRules
-	Cache         *cachesystem.CacheMiddleware
-	CacheStop     chan struct{} // stop channel for the TTL manager
-	TrafficLogger *logging.TrafficLogger
-	MLProtection  *inference.MLProtection // EPIC 7: ONNX inference middleware
+	Config           *config.Config
+	Scheduler        *scheduler.Scheduler
+	RateLimiter      *security.RateLimiter
+	TrafficRules     *security.TrafficRules
+	Cache            *cachesystem.CacheMiddleware
+	CacheStop        chan struct{} // stop channel for the TTL manager
+	RateLimiterStop  chan struct{} // stop channel for rate limiter cleanup
+	TrafficRulesStop chan struct{} // stop channel for traffic rules cleanup
+	MLProtectionStop chan struct{} // stop channel for ML abandoned IP cleanup
+	PollerStop       chan struct{} // stop channel for scheduler metrics poller
+	TrafficLogger    *logging.TrafficLogger
+	MLProtection     *inference.MLProtection // EPIC 7: ONNX inference middleware
+}
+
+// Close gracefully stops all background cleanup goroutines and flushes loggers.
+func (c *Components) Close() {
+	if c.CacheStop != nil {
+		close(c.CacheStop)
+		c.CacheStop = nil
+	}
+	if c.RateLimiterStop != nil {
+		close(c.RateLimiterStop)
+		c.RateLimiterStop = nil
+	}
+	if c.TrafficRulesStop != nil {
+		close(c.TrafficRulesStop)
+		c.TrafficRulesStop = nil
+	}
+	if c.MLProtectionStop != nil {
+		close(c.MLProtectionStop)
+		c.MLProtectionStop = nil
+	}
+	if c.PollerStop != nil {
+		close(c.PollerStop)
+		c.PollerStop = nil
+	}
+	if c.TrafficLogger != nil {
+		c.TrafficLogger.Close()
+	}
 }
 
 // NewComponents creates all middleware components from the given config.
@@ -43,6 +74,7 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 	if err != nil {
 		return nil, err
 	}
+	rateLimiterStop := rateLimiter.StartCleanupManager(30*time.Second, 10*time.Minute)
 
 	trafficRules, err := security.NewTrafficRules(
 		cfg.BurstThreshold,
@@ -51,16 +83,19 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 		cfg.EndpointAbuseWindow,
 	)
 	if err != nil {
+		close(rateLimiterStop)
 		return nil, err
 	}
+	trafficRulesStop := trafficRules.StartCleanupManager(30*time.Second)
 
 	// Create cache
 	lruCache := cachesystem.NewLRUCache(cfg.CacheCapacity, cfg.CacheMaxMemory)
-	stop := lruCache.StartTTLManager(30 * time.Second)
+	cacheStop := lruCache.StartTTLManager(30 * time.Second)
 	cacheMiddleware := cachesystem.NewCacheMiddleware(lruCache, cfg.CacheTTL, 1<<20)
 
 	// EPIC 7: Create ML Inference Engine first so we can pass it to the logger.
 	var mlProtection *inference.MLProtection
+	var mlProtectionStop chan struct{}
 	err = inference.Initialize(cfg.ONNXSharedLibraryPath) // e.g., /usr/lib/onnxruntime.so
 	if err == nil {
 		engine, err := inference.NewEngine(cfg.ModelPath)
@@ -70,6 +105,7 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 				log.Printf("[setup] Error creating ThresholdPolicy: %v. Running in static-rule mode.", err)
 			} else {
 				mlProtection = inference.NewMLProtection(cfg, engine, de)
+				mlProtectionStop = mlProtection.StartCleanupManager(30 * time.Second)
 			}
 		} else {
 			log.Printf("[setup] Could not start ML Engine: %v. Running in static-rule mode.", err)
@@ -81,29 +117,45 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 	// Create traffic logger
 	trafficLogger, err := logging.NewTrafficLogger(cfg, mlProtection)
 	if err != nil {
-		close(stop) // prevent TTL manager goroutine leak
+		close(cacheStop)
+		close(rateLimiterStop)
+		close(trafficRulesStop)
+		if mlProtectionStop != nil {
+			close(mlProtectionStop)
+		}
 		return nil, fmt.Errorf("failed to create traffic logger: %w", err)
 	}
 
-	// EPIC 8: Background poller for gauge metrics
+	// EPIC 8: Background poller for gauge metrics with clean lifecycle
 	sched := scheduler.New(cfg.MaxConcurrent, cfg.QueueTimeout)
+	pollerStop := make(chan struct{})
 	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
 		for {
-			monitoring.SchedulerActive.Set(float64(sched.ActiveCount()))
-			monitoring.SchedulerWaiting.Set(float64(sched.WaitingCount()))
-			time.Sleep(1 * time.Second)
+			select {
+			case <-ticker.C:
+				monitoring.SchedulerActive.Set(float64(sched.ActiveCount()))
+				monitoring.SchedulerWaiting.Set(float64(sched.WaitingCount()))
+			case <-pollerStop:
+				return
+			}
 		}
 	}()
 
 	return &Components{
-		Config:        cfg,
-		Scheduler:     sched,
-		RateLimiter:   rateLimiter,
-		TrafficRules:  trafficRules,
-		Cache:         cacheMiddleware,
-		CacheStop:     stop,
-		TrafficLogger: trafficLogger,
-		MLProtection:  mlProtection,
+		Config:           cfg,
+		Scheduler:        sched,
+		RateLimiter:      rateLimiter,
+		TrafficRules:     trafficRules,
+		Cache:            cacheMiddleware,
+		CacheStop:        cacheStop,
+		RateLimiterStop:  rateLimiterStop,
+		TrafficRulesStop: trafficRulesStop,
+		MLProtectionStop: mlProtectionStop,
+		PollerStop:       pollerStop,
+		TrafficLogger:    trafficLogger,
+		MLProtection:     mlProtection,
 	}, nil
 }
 
