@@ -33,6 +33,7 @@ The following issues have been addressed and verified in the codebase:
 - ✅ **Closed (Section 3):** Critical Runtime Bugs & Panics (§3.1 – §3.5 fixed and verified).
 - ✅ **Closed (Section 4):** Architecture & Pipeline Disconnects (§4.1 – §4.7 fixed, verified, and reconciled).
 - ✅ **Closed (Section 5):** Security & Privacy Vulnerabilities (§5.1 – §5.8 fixed, audited, and tested).
+- ✅ **Closed (Section 6):** Mathematical & ML Feature Inconsistencies (§6.1 – §6.5 fixed, entropy normalized, latency spikes unified, sliding windows implemented, 0.0 threshold enabled, datasets regenerated, model retrained/exported, and unit tested).
 - ✅ **Closed (Section 7):** Memory Leaks & Concurrency Issues (§7.1 – §7.7 fixed, unit tested, race-detector verified).
 - ✅ **Closed (Section 8):** Monitoring, Metrics & Grafana Conflicts (§8.1 – §8.4 fixed, PromQL aligned, duplicate configs pruned, metrics consolidated).
 - ✅ **Closed (Section 9):** Cache & Resource Management Flaws (§9.1 – §9.3 fixed, graceful shutdown, CacheStop closing, and automatic log flushing).
@@ -211,33 +212,35 @@ The following items from the initial audit were verified as **false positives or
 
 ### 6.1 — Incompatible Shannon entropy computation between Python and Go
 
+- **Status:** Closed
 - **Python:** [`pipeline/feature_extraction/feature_extractor.py:L88-L89`](pipeline/feature_extraction/feature_extractor.py#L88-L89) divides entropy by $\log_2(N)$ to normalize to `[0.0, 1.0]`.
-- **Go:** [`core/inference/features.go:L46-L67`](core/inference/features.go#L46-L67) computes raw unnormalized Shannon entropy.
-- **Impact:** Inference receives values with a different scale and distribution than what the model observed during training.
+- **Go:** [`core/inference/features.go`](core/inference/features.go) was computing raw unnormalized Shannon entropy.
+- **Fix:** Standardized Go `ShannonEntropy` to normalize by `math.Log2(float64(nonZeroCount))` so both Go inference and Python pipeline return values strictly in `[0.0, 1.0]`. Unit tested across edge cases in `core/inference/inference_test.go`.
 
 ### 6.2 — Synthetic data entropy distribution does not match any extractor
 
-- **File:** [`ml/data/generate_synthetic_data.py:L37`](ml/data/generate_synthetic_data.py#L37)
-- **Code:** `np.clip(np.random.normal(1.5, 0.5), 0.0, 3.0)`
-- **Impact:** Synthetic normal traffic is centered at 1.5, whereas normalized Python features are strictly $\le 1.0$.
+- **Status:** Closed
+- **File:** [`ml/data/generate_synthetic_data.py`](ml/data/generate_synthetic_data.py)
+- **Fix:** Bounded all synthetic entropy generation to `[0.0, 1.0]` across all traffic profiles (normal centered at ~0.7, DDoS and brute force near 0.0, flooding at 0.4–0.9, latency attacks at 0.1–0.6). Added `argparse` support. Regenerated `datasets/synthetic_traffic_dataset.csv`, retrained Isolation Forest with GridSearchCV (F1 score 0.9827), and exported to `models/anomaly_model.onnx`.
 
 ### 6.3 — Latency spike detection threshold divergence
 
-- **Python:** [`pipeline/feature_extraction/feature_extractor.py:L138`](pipeline/feature_extraction/feature_extractor.py#L138) uses `max(baseline * 3, 500.0)`.
-- **Go:** [`core/inference/middleware.go:L169`](core/inference/middleware.go#L169) uses `avgLatency * 1.5` and `> 100.0`.
-- **Impact:** Divergent spike definitions between offline training features and real-time inference features.
+- **Status:** Closed
+- **Python:** [`pipeline/feature_extraction/feature_extractor.py`](pipeline/feature_extraction/feature_extractor.py) used `max(baseline * 3, 500.0)`.
+- **Go:** [`core/inference/middleware.go`](core/inference/middleware.go) and [`docs/DATA_SCHEMA.md`](docs/DATA_SCHEMA.md) use `maxLatency > (avgLatency * 1.5) && maxLatency > 100.0`.
+- **Fix:** Unified Python `extract_features` to use `max_latency > (avg_latency * 1.5) and max_latency > 100.0`. Unit tested in `pipeline/feature_extraction/test_feature_extractor.py`.
 
 ### 6.4 — Batch feature extractor averages over entire log duration rather than sliding windows
 
-- **File:** [`pipeline/feature_extraction/feature_extractor.py:L163-L166`](pipeline/feature_extraction/feature_extractor.py#L163-L166)
-- **Code:** `requests_per_10s = round(total_requests / max(1, span_seconds / 10))`
-- **Impact:** Bursts are smoothed out over the entire log duration. An attack sending 100 requests in 5 seconds over a 1-hour log file calculates as ~0 requests/10s.
+- **Status:** Closed
+- **File:** [`pipeline/feature_extraction/feature_extractor.py`](pipeline/feature_extraction/feature_extractor.py)
+- **Fix:** Replaced whole-log duration averaging with true sliding window extraction over active 60-second windows with 10-second sub-windows. Emits accurate windowed feature records without burst smoothing. Unit tested in `pipeline/feature_extraction/test_feature_extractor.py`.
 
 ### 6.5 — `NewThresholdPolicy` overrides valid zero thresholds
 
-- **File:** [`core/decision/decision_engine.go:L51-L56`](core/decision/decision_engine.go#L51-L56)
-- **Code:** `if blockThreshold == 0 { blockThreshold = 0.85 }`
-- **Impact:** A threshold of `0.0` (block all) cannot be configured because it is mistaken for uninitialized state.
+- **Status:** Closed
+- **File:** [`core/decision/decision_engine.go`](core/decision/decision_engine.go)
+- **Fix:** Removed zero overrides (`if blockThreshold == 0`) from `NewThresholdPolicy` so that `0.0` can be configured explicitly. Added `NewDefaultThresholdPolicy()` for callers wanting defaults (0.85, 0.65). Verified with unit tests in `core/decision/decision_engine_test.go`.
 
 ---
 

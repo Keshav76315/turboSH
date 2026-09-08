@@ -1,3 +1,4 @@
+import argparse
 import csv
 import os
 import random
@@ -7,9 +8,9 @@ import numpy as np
 np.random.seed(42)
 random.seed(42)
 
-OUTPUT_FILE = "datasets/synthetic_traffic_dataset.csv"
-NUM_NORMAL = 20000
-NUM_ATTACK = 2000
+DEFAULT_OUTPUT_FILE = "datasets/synthetic_traffic_dataset.csv"
+DEFAULT_NUM_NORMAL = 20000
+DEFAULT_NUM_ATTACK = 2000
 
 COLUMNS = [
     "requests_per_ip_10s",
@@ -32,9 +33,9 @@ def generate_normal_traffic() -> dict:
         reqs_10s = int(np.random.uniform(10, 40))
         reqs_60s = int(reqs_10s + np.random.uniform(5, 40))
     
-    # Entropy should be reasonably high for normal browsing, or very low for static asset fetching
-    # We will pick a mixed normal distribution
-    entropy = np.clip(np.random.normal(1.5, 0.5), 0.0, 3.0)
+    # Normalized Shannon entropy in [0.0, 1.0].
+    # Normal browsing hits varied pages and assets, centered around ~0.7
+    entropy = np.clip(np.random.normal(0.7, 0.2), 0.0, 1.0)
     
     # Rarely any latency spikes
     spike = np.random.choice([0, 1], p=[0.95, 0.05])
@@ -62,8 +63,8 @@ def generate_ddos_burst() -> dict:
     # It must also be high over 60s
     reqs_60s = int(reqs_10s + np.random.uniform(0, 500))
     
-    # Often hitting the same or a small set of endpoints
-    entropy = np.clip(np.random.uniform(0.0, 1.0), 0.0, 1.0)
+    # Often hitting a single target endpoint or narrow set (entropy near 0.0)
+    entropy = np.clip(np.random.uniform(0.0, 0.2), 0.0, 1.0)
     
     spike = np.random.choice([0, 1], p=[0.2, 0.8])
     error_rate = np.clip(np.random.exponential(0.1), 0.0, 0.4)
@@ -85,8 +86,8 @@ def generate_brute_force() -> dict:
     reqs_10s = int(np.random.uniform(1, 15))
     reqs_60s = int(np.random.uniform(20, 100))
     
-    # Repeatedly hitting the same endpoint (e.g. /login)
-    entropy = np.clip(np.random.uniform(0.0, 0.5), 0.0, 0.5)
+    # Repeatedly hitting the same endpoint (e.g. /login) -> low entropy
+    entropy = np.clip(np.random.uniform(0.0, 0.2), 0.0, 1.0)
     
     spike = np.random.choice([0, 1], p=[0.8, 0.2])
     # Very high error rate from constant 401 Unauthorized responses
@@ -109,7 +110,8 @@ def generate_request_flooding() -> dict:
     reqs_10s = int(np.random.uniform(10, 45)) # Might fly under 10s radar
     reqs_60s = int(np.random.uniform(200, 5000))
     
-    entropy = np.clip(np.random.uniform(1.0, 2.5), 0.0, 3.0)
+    # Random or varied endpoint distribution in [0.0, 1.0]
+    entropy = np.clip(np.random.uniform(0.4, 0.9), 0.0, 1.0)
     spike = np.random.choice([0, 1], p=[0.5, 0.5])
     error_rate = np.clip(np.random.uniform(0.0, 0.4), 0.0, 1.0)
     variance = np.clip(np.random.uniform(2.0, 20.0), 1.0, 100.0)
@@ -130,7 +132,8 @@ def generate_latency_attack() -> dict:
     reqs_10s = int(np.random.uniform(1, 40)) 
     reqs_60s = int(np.random.uniform(10, 150))
     
-    entropy = np.clip(np.random.uniform(1.0, 3.0), 0.0, 3.0)
+    # Targeted endpoints causing backend timeouts in [0.0, 1.0]
+    entropy = np.clip(np.random.uniform(0.1, 0.6), 0.0, 1.0)
     spike = 1
     # Very high error rate from 504 Gateway Timeouts
     error_rate = np.clip(np.random.uniform(0.3, 1.0), 0.3, 1.0)
@@ -146,15 +149,15 @@ def generate_latency_attack() -> dict:
         "label": 1
     }
 
-def generate_dataset():
+def generate_dataset(output_file: str = DEFAULT_OUTPUT_FILE, num_normal: int = DEFAULT_NUM_NORMAL, num_attack: int = DEFAULT_NUM_ATTACK):
     data = []
     
-    print(f"Generating {NUM_NORMAL} normal traffic records...")
-    for _ in range(NUM_NORMAL):
+    print(f"Generating {num_normal} normal traffic records...")
+    for _ in range(num_normal):
         data.append(generate_normal_traffic())
         
-    print(f"Generating {NUM_ATTACK} total attack records...")
-    for _ in range(NUM_ATTACK // 4):
+    print(f"Generating {num_attack} total attack records...")
+    for _ in range(num_attack // 4):
         data.append(generate_ddos_burst())
         data.append(generate_brute_force())
         data.append(generate_request_flooding())
@@ -163,14 +166,19 @@ def generate_dataset():
     # Shuffle the dataset
     random.shuffle(data)
     
-    os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
-    with open(OUTPUT_FILE, mode='w', newline='') as f:
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    with open(output_file, mode='w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=COLUMNS)
         writer.writeheader()
         for row in data:
             writer.writerow(row)
             
-    print(f"✅ Generated {len(data)} rows successfully. Saved to {OUTPUT_FILE}")
+    print(f"[OK] Generated {len(data)} rows successfully. Saved to {output_file}")
 
 if __name__ == "__main__":
-    generate_dataset()
+    parser = argparse.ArgumentParser(description="Generate synthetic traffic dataset for anomaly detection training")
+    parser.add_argument("--output", "-o", default=DEFAULT_OUTPUT_FILE, help=f"Path to output CSV (default: {DEFAULT_OUTPUT_FILE})")
+    parser.add_argument("--num-normal", type=int, default=DEFAULT_NUM_NORMAL, help=f"Number of normal samples (default: {DEFAULT_NUM_NORMAL})")
+    parser.add_argument("--num-attack", type=int, default=DEFAULT_NUM_ATTACK, help=f"Number of attack samples (default: {DEFAULT_NUM_ATTACK})")
+    args = parser.parse_args()
+    generate_dataset(output_file=args.output, num_normal=args.num_normal, num_attack=args.num_attack)

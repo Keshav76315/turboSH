@@ -17,7 +17,7 @@ Features computed (per IP):
     1. requests_per_ip_10s  — request count in 10-second windows
     2. requests_per_ip_60s  — request count in 60-second windows
     3. endpoint_entropy     — Shannon entropy of endpoint distribution (0–1)
-    4. latency_spike        — 1 if response_time > baseline * 3, else 0
+    4. latency_spike        — 1 if response_time > avg * 1.5 and > 100ms, else 0
     5. error_rate           — ratio of 4xx/5xx responses
     6. request_variance     — variance of backend response latencies (ms)
 """
@@ -30,7 +30,7 @@ import os
 import sys
 import statistics
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Optional
 
 
@@ -50,7 +50,7 @@ def read_traffic_logs(filepath: str) -> List[Dict]:
             try:
                 entries.append(json.loads(line))
             except json.JSONDecodeError as e:
-                print(f"  ⚠ Skipping malformed line {line_num}: {e}", file=sys.stderr)
+                print(f"  [WARN] Skipping malformed line {line_num}: {e}", file=sys.stderr)
     return entries
 
 
@@ -74,15 +74,15 @@ def compute_entropy(endpoint_counts: Dict[str, int]) -> float:
     if total == 0:
         return 0.0
 
-    num_endpoints = len(endpoint_counts)
+    non_zero = [count for count in endpoint_counts.values() if count > 0]
+    num_endpoints = len(non_zero)
     if num_endpoints <= 1:
         return 0.0
 
     entropy = 0.0
-    for count in endpoint_counts.values():
-        if count > 0:
-            p = count / total
-            entropy -= p * math.log2(p)
+    for count in non_zero:
+        p = count / total
+        entropy -= p * math.log2(p)
 
     # Normalize by max possible entropy (log2 of number of distinct endpoints)
     max_entropy = math.log2(num_endpoints)
@@ -108,17 +108,24 @@ def compute_inter_arrival_times(timestamps: List[datetime]) -> List[float]:
     ]
 
 
-def extract_features(entries: List[Dict], latency_baseline: float = None) -> List[Dict]:
+def extract_features(
+    entries: List[Dict],
+    latency_baseline: float = None,
+    window_size: float = 60.0,
+    window_step: float = 10.0,
+) -> List[Dict]:
     """
-    Extract per-IP behavioral features from raw traffic log entries.
+    Extract per-IP behavioral features from raw traffic log entries using sliding windows.
 
     Args:
         entries: list of log entry dicts (from traffic.jsonl)
-        latency_baseline: baseline response_time (ms). If None, auto-computed
-                          as the median of all response times.
+        latency_baseline: optional baseline response_time (ms). If None, auto-computed
+                          per window matching real-time Go middleware.
+        window_size: sliding window duration in seconds (default: 60.0).
+        window_step: sliding window step in seconds (default: 10.0).
 
     Returns:
-        list of feature row dicts, one per IP.
+        list of feature row dicts.
     """
     if not entries:
         return []
@@ -129,73 +136,123 @@ def extract_features(entries: List[Dict], latency_baseline: float = None) -> Lis
         ip_hash = entry.get("ip_hash", "unknown")
         ip_entries[ip_hash].append(entry)
 
-    # ── Auto-compute latency baseline (median) ──
-    if latency_baseline is None:
-        all_latencies = [e.get("response_time", 0) for e in entries]
-        latency_baseline = statistics.median(all_latencies) if all_latencies else 100.0
-
-    # Spike threshold: 3x baseline (or at least 500ms)
-    spike_threshold = max(latency_baseline * 3, 500.0)
-
-    # ── Compute features per IP ──
     feature_rows = []
 
     for ip_hash, ip_logs in ip_entries.items():
         # Parse timestamps
-        timestamps = []
+        valid_logs = []
         for log in ip_logs:
             try:
-                timestamps.append(parse_timestamp(log["timestamp"]))
+                ts = parse_timestamp(log["timestamp"])
+                valid_logs.append((ts, log))
             except (KeyError, ValueError):
                 pass
 
-        # Time span for windowed counts
-        if timestamps:
-            sorted_ts = sorted(timestamps)
-            span_seconds = (sorted_ts[-1] - sorted_ts[0]).total_seconds()
-        else:
-            span_seconds = 0
+        # Fallback if logs have no valid timestamps: treat as single batch window
+        if not valid_logs:
+            total_reqs = len(ip_logs)
+            latencies = [log.get("response_time", 0.0) for log in ip_logs]
+            avg_lat = sum(latencies) / len(latencies) if latencies else 0.0
+            max_lat = max(latencies) if latencies else 0.0
+            effective_base = latency_baseline if latency_baseline is not None else avg_lat
+            spike = 1 if max_lat > (effective_base * 1.5) and max_lat > 100.0 else 0
+            errs = sum(1 for log in ip_logs if log.get("status_code", 200) >= 400)
+            err_rate = round(errs / total_reqs, 4) if total_reqs > 0 else 0.0
+            var = round(compute_variance(latencies), 4)
 
-        total_requests = len(ip_logs)
+            ep_counts = defaultdict(int)
+            for log in ip_logs:
+                ep_counts[log.get("endpoint", "/")] += 1
+            ent = round(compute_entropy(ep_counts), 4)
 
-        # ── Feature 1 & 2: requests_per_ip_10s / 60s ──
-        # Estimate: total_requests / (span / window), minimum 1 window
-        windows_10s = max(1, span_seconds / 10)
-        windows_60s = max(1, span_seconds / 60)
-        requests_per_10s = round(total_requests / windows_10s)
-        requests_per_60s = round(total_requests / windows_60s)
-
-        # ── Feature 3: endpoint_entropy ──
-        endpoint_counts = defaultdict(int)
-        for log in ip_logs:
-            endpoint_counts[log.get("endpoint", "/")] += 1
-        entropy = round(compute_entropy(endpoint_counts), 4)
-
-        # ── Feature 4: latency_spike ──
-        max_latency = max((log.get("response_time", 0) for log in ip_logs), default=0)
-        latency_spike = 1 if max_latency > spike_threshold else 0
-
-        # ── Feature 5: error_rate ──
-        error_count = sum(1 for log in ip_logs if log.get("status_code", 200) >= 400)
-        error_rate = (
-            round(error_count / total_requests, 4) if total_requests > 0 else 0.0
-        )
-
-        # ── Feature 6: request_variance ──
-        latencies = [log.get("response_time", 0.0) for log in ip_logs]
-        request_variance = round(compute_variance(latencies), 4)
-
-        feature_rows.append(
-            {
+            feature_rows.append({
                 "ip_hash": ip_hash,
-                "requests_per_ip_10s": requests_per_10s,
-                "requests_per_ip_60s": requests_per_60s,
+                "requests_per_ip_10s": total_reqs,
+                "requests_per_ip_60s": total_reqs,
+                "endpoint_entropy": ent,
+                "latency_spike": spike,
+                "error_rate": err_rate,
+                "request_variance": var,
+            })
+            continue
+
+        valid_logs.sort(key=lambda x: x[0])
+        t_first = valid_logs[0][0]
+        t_last = valid_logs[-1][0]
+
+        span_seconds = (t_last - t_first).total_seconds()
+        # If all requests occur within a single window step, evaluate at t_last
+        if span_seconds <= window_step:
+            window_eval_times = [t_last]
+        else:
+            window_eval_times = []
+            curr_end = t_first + timedelta(seconds=window_step)
+            while curr_end <= t_last + timedelta(seconds=window_step):
+                # Only evaluate windows that contain requests in the 60s window
+                has_reqs = any(
+                    0 <= (curr_end - ts).total_seconds() < window_size
+                    for ts, _ in valid_logs
+                )
+                if has_reqs:
+                    window_eval_times.append(curr_end)
+
+                # Skip long idle gaps (> window_size) where the client is inactive
+                next_reqs = [ts for ts, _ in valid_logs if ts > curr_end]
+                if next_reqs:
+                    next_ts = next_reqs[0]
+                    if (next_ts - curr_end).total_seconds() > window_size:
+                        curr_end = next_ts + timedelta(seconds=window_step)
+                        continue
+
+                curr_end += timedelta(seconds=window_step)
+
+        for w_end in window_eval_times:
+            # Requests in 60-second window: [w_end - 60s, w_end]
+            w_60_logs = [
+                log for ts, log in valid_logs
+                if 0 <= (w_end - ts).total_seconds() <= window_size
+            ]
+            if not w_60_logs:
+                continue
+
+            # Requests in 10-second sub-window: [w_end - 10s, w_end]
+            w_10_logs = [
+                log for ts, log in valid_logs
+                if 0 <= (w_end - ts).total_seconds() <= 10.0
+            ]
+
+            reqs_10s = len(w_10_logs)
+            reqs_60s = len(w_60_logs)
+
+            # Feature 3: endpoint_entropy (normalized Shannon entropy strictly in [0.0, 1.0])
+            ep_counts = defaultdict(int)
+            for log in w_60_logs:
+                ep_counts[log.get("endpoint", "/")] += 1
+            entropy = round(compute_entropy(ep_counts), 4)
+
+            # Feature 4: latency_spike (max > avg * 1.5 and max > 100.0)
+            latencies = [log.get("response_time", 0.0) for log in w_60_logs]
+            avg_latency = sum(latencies) / len(latencies) if latencies else 0.0
+            max_latency = max(latencies) if latencies else 0.0
+            base = latency_baseline if latency_baseline is not None else avg_latency
+            latency_spike = 1 if max_latency > (base * 1.5) and max_latency > 100.0 else 0
+
+            # Feature 5: error_rate
+            error_count = sum(1 for log in w_60_logs if log.get("status_code", 200) >= 400)
+            error_rate = round(error_count / reqs_60s, 4) if reqs_60s > 0 else 0.0
+
+            # Feature 6: request_variance
+            request_variance = round(compute_variance(latencies), 4)
+
+            feature_rows.append({
+                "ip_hash": ip_hash,
+                "requests_per_ip_10s": reqs_10s,
+                "requests_per_ip_60s": reqs_60s,
                 "endpoint_entropy": entropy,
                 "latency_spike": latency_spike,
                 "error_rate": error_rate,
                 "request_variance": request_variance,
-            }
-        )
+            })
 
     return feature_rows
 
@@ -246,32 +303,56 @@ def main():
         default="datasets/features.csv",
         help="Path to write the features CSV (default: datasets/features.csv)",
     )
+    parser.add_argument(
+        "--window-size",
+        type=float,
+        default=60.0,
+        help="Sliding window duration in seconds (default: 60.0)",
+    )
+    parser.add_argument(
+        "--window-step",
+        type=float,
+        default=10.0,
+        help="Sliding window step in seconds (default: 10.0)",
+    )
+    parser.add_argument(
+        "--baseline",
+        type=float,
+        default=None,
+        help="Optional latency baseline in ms (auto-computed per window if omitted)",
+    )
     args = parser.parse_args()
 
     # Read logs
-    print(f"📂 Reading traffic logs from: {args.input}")
+    print(f"[INFO] Reading traffic logs from: {args.input}")
     entries = read_traffic_logs(args.input)
-    print(f"   Found {len(entries)} log entries")
+    print(f"       Found {len(entries)} log entries")
 
     if not entries:
-        print("⚠ No entries found. Nothing to extract.", file=sys.stderr)
+        print("[WARN] No entries found. Nothing to extract.", file=sys.stderr)
         sys.exit(1)
 
     # Extract features
-    print("🔬 Extracting features...")
-    features = extract_features(entries)
-    print(f"   Computed features for {len(features)} unique IPs")
+    print("[INFO] Extracting features...")
+    features = extract_features(
+        entries,
+        latency_baseline=args.baseline,
+        window_size=args.window_size,
+        window_step=args.window_step,
+    )
+    unique_ips = len(set(f["ip_hash"] for f in features))
+    print(f"       Computed {len(features)} feature window(s) across {unique_ips} unique IP(s)")
 
     # Write output
-    print(f"💾 Writing features to: {args.output}")
+    print(f"[INFO] Writing features to: {args.output}")
     write_features_csv(features, args.output)
 
     # Preview
-    print("\n📊 Feature Preview:")
+    print("\n[INFO] Feature Preview:")
     print(
         f"   {'ip_hash':<18} {'req/10s':>7} {'req/60s':>7} {'entropy':>8} {'spike':>5} {'err_rate':>8} {'variance':>9}"
     )
-    print(f"   {'─' * 18} {'─' * 7} {'─' * 7} {'─' * 8} {'─' * 5} {'─' * 8} {'─' * 9}")
+    print(f"   {'-' * 18} {'-' * 7} {'-' * 7} {'-' * 8} {'-' * 5} {'-' * 8} {'-' * 9}")
     for row in features[:10]:  # show first 10
         print(
             f"   {row['ip_hash']:<18} {row['requests_per_ip_10s']:>7} {row['requests_per_ip_60s']:>7} "
@@ -279,7 +360,7 @@ def main():
             f"{row['request_variance']:>9.4f}"
         )
 
-    print(f"\n Done {len(features)} feature rows written to {args.output}")
+    print(f"\n[OK] Done. {len(features)} feature rows written to {args.output}")
 
 
 if __name__ == "__main__":

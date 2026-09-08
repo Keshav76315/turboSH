@@ -45,15 +45,22 @@ type ThresholdPolicy struct {
 	RateLimitThreshold float64 // Score above this → RATE_LIMIT
 }
 
-// NewThresholdPolicy creates a new threshold-based policy.
-// Default: block > 0.85, rate_limit > 0.65, allow otherwise.
+const (
+	// DefaultBlockThreshold is the default anomaly score above which requests are blocked.
+	DefaultBlockThreshold = 0.85
+	// DefaultRateLimitThreshold is the default anomaly score above which requests are throttled.
+	DefaultRateLimitThreshold = 0.65
+)
+
+// NewDefaultThresholdPolicy creates a threshold policy using the default thresholds (0.85, 0.65).
+func NewDefaultThresholdPolicy() *ThresholdPolicy {
+	policy, _ := NewThresholdPolicy(DefaultBlockThreshold, DefaultRateLimitThreshold)
+	return policy
+}
+
+// NewThresholdPolicy creates a new threshold-based policy with the specified thresholds.
+// It preserves explicitly configured zero thresholds (e.g. 0.0).
 func NewThresholdPolicy(blockThreshold, rateLimitThreshold float64) (*ThresholdPolicy, error) {
-	if blockThreshold == 0 {
-		blockThreshold = 0.85
-	}
-	if rateLimitThreshold == 0 {
-		rateLimitThreshold = 0.65
-	}
 	if rateLimitThreshold >= blockThreshold {
 		return nil, fmt.Errorf("rateLimitThreshold (%f) must be less than blockThreshold (%f)", rateLimitThreshold, blockThreshold)
 	}

@@ -77,7 +77,7 @@ def read_features_csv(filepath: str) -> List[Dict]:
                 }
                 rows.append(cleaned)
             except (ValueError, KeyError) as e:
-                print(f"  ⚠ Skipping malformed row {line_num}: {e}", file=sys.stderr)
+                print(f"  [WARN] Skipping malformed row {line_num}: {e}", file=sys.stderr)
     return rows
 
 
@@ -156,58 +156,58 @@ def main():
     args = parser.parse_args()
 
     # ── Read features ──
-    print(f"📂 Reading features from: {args.input}")
+    print(f"[INFO] Reading features from: {args.input}")
     rows = read_features_csv(args.input)
-    print(f"   Loaded {len(rows)} feature rows")
+    print(f"       Loaded {len(rows)} feature rows")
 
     if not rows:
-        print("⚠ No feature rows found. Nothing to build.", file=sys.stderr)
+        print("[WARN] No feature rows found. Nothing to build.", file=sys.stderr)
         sys.exit(1)
 
     # ── Label ──
-    print("🏷  Labeling rows...")
+    print("[INFO] Labeling rows...")
     labeled = label_dataset(rows)
 
     normal_rows  = [r for r in labeled if r["label"] == 0]
     attack_rows  = [r for r in labeled if r["label"] == 1]
 
-    print(f"   Normal:  {len(normal_rows)} rows (label=0)")
-    print(f"   Attack:  {len(attack_rows)} rows (label=1)")
+    print(f"       Normal:  {len(normal_rows)} rows (label=0)")
+    print(f"       Attack:  {len(attack_rows)} rows (label=1)")
 
     # ── Write datasets ──
     traffic_path = os.path.join(args.output, "traffic_dataset.csv")
     attack_path  = os.path.join(args.output, "attack_dataset.csv")
 
-    print(f"💾 Writing traffic_dataset.csv  → {traffic_path}")
+    print(f"[INFO] Writing traffic_dataset.csv  -> {traffic_path}")
     write_dataset(labeled, traffic_path, DATASET_COLUMNS)
 
-    print(f"💾 Writing attack_dataset.csv   → {attack_path}")
+    print(f"[INFO] Writing attack_dataset.csv   -> {attack_path}")
     write_dataset(attack_rows, attack_path, DATASET_COLUMNS)
 
     # ── Summary ──
-    print("\n📊 Dataset Summary:")
-    print(f"   ┌─────────────────────────┬───────┐")
-    print(f"   │ Dataset                 │ Rows  │")
-    print(f"   ├─────────────────────────┼───────┤")
-    print(f"   │ traffic_dataset.csv     │ {len(labeled):>5} │")
-    print(f"   │ attack_dataset.csv      │ {len(attack_rows):>5} │")
-    print(f"   └─────────────────────────┴───────┘")
+    print("\n[INFO] Dataset Summary:")
+    print(f"   +-------------------------+-------+")
+    print(f"   | Dataset                 | Rows  |")
+    print(f"   +-------------------------+-------+")
+    print(f"   | traffic_dataset.csv     | {len(labeled):>5} |")
+    print(f"   | attack_dataset.csv      | {len(attack_rows):>5} |")
+    print(f"   +-------------------------+-------+")
 
     if labeled:
         attack_pct = len(attack_rows) / len(labeled) * 100
         print(f"\n   Attack ratio: {attack_pct:.1f}% ({len(attack_rows)}/{len(labeled)})")
 
     # Preview labeled rows
-    print("\n📋 Preview (first 10 rows):")
+    print("\n[INFO] Preview (first 10 rows):")
     print(f"   {'req/10s':>7} {'req/60s':>7} {'entropy':>8} {'spike':>5} {'err_rate':>8} {'variance':>9} {'label':>5}")
-    print(f"   {'─' * 7} {'─' * 7} {'─' * 8} {'─' * 5} {'─' * 8} {'─' * 9} {'─' * 5}")
+    print(f"   {'-' * 7} {'-' * 7} {'-' * 8} {'-' * 5} {'-' * 8} {'-' * 9} {'-' * 5}")
     for row in labeled[:10]:
         lbl = "ATTACK" if row["label"] == 1 else "normal"
         print(f"   {row['requests_per_ip_10s']:>7} {row['requests_per_ip_60s']:>7} "
               f"{row['endpoint_entropy']:>8.4f} {row['latency_spike']:>5} "
               f"{row['error_rate']:>8.4f} {row['request_variance']:>9.4f} {lbl:>6}")
 
-    print(f"\n✅ Done! Datasets ready for model training (EPIC 6).")
+    print(f"\n[OK] Done! Datasets ready for model training (EPIC 6).")
 
 
 if __name__ == "__main__":

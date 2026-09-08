@@ -68,7 +68,7 @@ def export_model(model_path, output_path):
     with open(output_path, "wb") as f:
         f.write(onnx_model.SerializeToString())
 
-    print(f"✅ {model_type} model successfully exported to {output_path}!")
+    print(f"[OK] {model_type} model successfully exported to {output_path}!")
 
 
 if __name__ == "__main__":

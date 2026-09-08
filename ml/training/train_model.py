@@ -126,5 +126,5 @@ elif best_overall_name == "LocalOutlierFactor":
 os.makedirs("models", exist_ok=True)
 joblib_path = f"models/best_{best_overall_name.lower()}.pkl"
 joblib.dump(best_estimator, joblib_path)
-print(f"\n✅ Training complete! Best model saved to {joblib_path}")
+print(f"\n[OK] Training complete! Best model saved to {joblib_path}")
 print("========================================================")

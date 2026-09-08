@@ -50,18 +50,23 @@ func NormalizeScore(decisionFuncValue float64) float64 {
 	return math.Max(0.0, math.Min(1.0, score))
 }
 
-// ShannonEntropy computes the entropy of a given array of counts.
-// Used to calculate EndpointEntropy.
+// ShannonEntropy computes the normalized Shannon entropy of a given array of counts.
+// Used to calculate EndpointEntropy. Returns a value between 0.0 (single endpoint)
+// and 1.0 (uniform distribution across multiple endpoints).
 func ShannonEntropy(counts []int) float32 {
-	if len(counts) == 0 {
+	if len(counts) <= 1 {
 		return 0.0
 	}
 
 	total := 0
+	nonZero := 0
 	for _, c := range counts {
-		total += c
+		if c > 0 {
+			total += c
+			nonZero++
+		}
 	}
-	if total == 0 {
+	if total == 0 || nonZero <= 1 {
 		return 0.0
 	}
 
@@ -72,5 +77,10 @@ func ShannonEntropy(counts []int) float32 {
 			entropy -= p * math.Log2(p)
 		}
 	}
-	return float32(entropy)
+
+	maxEntropy := math.Log2(float64(nonZero))
+	if maxEntropy <= 0 {
+		return 0.0
+	}
+	return float32(entropy / maxEntropy)
 }

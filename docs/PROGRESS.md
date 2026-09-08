@@ -116,6 +116,20 @@
 - Verified production-ready containerized deployment and monitoring stack.
   - Auto-generated `docs/detection_accuracy_report.md`.
 
+### 2026-09-08
+
+**Keshav**
+
+- **Flaw Audit Resolution — Section 6 (Mathematical & ML Feature Inconsistencies):**
+  - Standardized Shannon entropy normalization in Go (`core/inference/features.go`) to divide by $\log_2(N)$ matching Python and `DATA_SCHEMA.md` ($[0.0, 1.0]$).
+  - Expanded `core/inference/inference_test.go` with multi-endpoint normalization test cases.
+  - Resolved `NewThresholdPolicy` zero threshold override in `core/decision/decision_engine.go`, allowing valid `0.0` thresholds, and added unit tests in `core/decision/decision_engine_test.go`.
+  - Replaced entire-log duration averaging in Python (`pipeline/feature_extraction/feature_extractor.py`) with true sliding window feature extraction (60s window, 10s sub-window) to accurately capture bursts.
+  - Unified Python `latency_spike` detection threshold with Go real-time inference (`> 1.5x avg and > 100ms`).
+  - Added unit test suite `pipeline/feature_extraction/test_feature_extractor.py` verifying entropy, sliding windows, and spike detection.
+  - Bounded synthetic data entropy in `ml/data/generate_synthetic_data.py` strictly to $[0.0, 1.0]$ across all profiles, added `argparse` support, and regenerated 22k records.
+  - Retrained Isolation Forest model via GridSearchCV (`train_model.py`, Validation F1: 0.9827) and exported updated ONNX model (`models/anomaly_model.onnx`).
+
 ---
 
 <!--
