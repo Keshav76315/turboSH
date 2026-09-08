@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Keshav76315/turboSH/pipeline/logging"
 	"github.com/gin-gonic/gin"
 )
 
@@ -106,7 +107,7 @@ func (tr *TrafficRules) CheckEndpointAbuse(ip, endpoint string) bool {
 // Middleware returns a Gin middleware that checks burst and endpoint abuse rules.
 func (tr *TrafficRules) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ip := c.ClientIP()
+		ip := logging.GetCanonicalIP(c, nil)
 		endpoint := c.Request.URL.Path
 
 		// Check burst detection

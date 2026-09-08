@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Keshav76315/turboSH/pipeline/logging"
 	"github.com/gin-gonic/gin"
 )
 
@@ -80,7 +81,7 @@ func (rl *RateLimiter) Allow(ip string) bool {
 // Middleware returns a Gin middleware that rate-limits requests by client IP.
 func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ip := c.ClientIP()
+		ip := logging.GetCanonicalIP(c, nil)
 
 		if !rl.Allow(ip) {
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{

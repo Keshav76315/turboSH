@@ -425,3 +425,26 @@ Components communicate through well‑defined interfaces. This ensures Keshav an
 | CPU      | 2 cores |
 | GPU      | None    |
 | OS       | Linux   |
+
+---
+
+## 10. Security & Deployment Architecture
+
+### 10.1 TLS / HTTPS Termination
+
+TurboSH supports two deployment models for HTTPS:
+
+- **Option A (Direct Termination):** Configure `TURBOSH_TLS_ENABLED=true`, `TURBOSH_TLS_CERT`, and `TURBOSH_TLS_KEY` to terminate TLS directly within the TurboSH Go process.
+- **Option B (Recommended for Production):** Deploy behind an edge TLS-terminating reverse proxy / load balancer (e.g. Nginx, Cloudflare, AWS ALB):
+
+```
+                  HTTPS (443)                     HTTP (8080)
+Internet / Client ──────────► Ingress Reverse Proxy ──────────► TurboSH ──► Backend
+                              (TLS Termination)                (Private Net)
+```
+
+**Production Invariants:**
+1. TurboSH's HTTP listener (`:8080`) should be bound to an internal private container network or loopback interface, not exposed directly to the public Internet.
+2. Upstream proxies must be configured in `TURBOSH_TRUSTED_PROXIES` so TurboSH's canonical IP resolver can reliably verify `X-Forwarded-For` chains and prevent IP spoofing.
+3. Prometheus scraping (`:9090/metrics`) is isolated on a dedicated internal port and must remain restricted to internal monitoring agents.
+

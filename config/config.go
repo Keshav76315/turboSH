@@ -17,6 +17,15 @@ type Config struct {
 	BackendURL     string   // Backend server URL to forward requests to
 	TrustedProxies []string // List of trusted proxy IPs/CIDRs for parsing X-Forwarded-For
 
+	// TLS / HTTPS settings
+	TLSEnabled  bool   // Whether to terminate TLS directly in turboSH
+	TLSCertFile string // Path to TLS certificate file (.crt or .pem)
+	TLSKeyFile  string // Path to TLS private key file (.key)
+
+	// Metrics settings (isolated internal listener)
+	MetricsPort    string // Internal port for Prometheus scraping (default ":9090")
+	MetricsEnabled bool   // Whether internal Prometheus listener is active (default true)
+
 	// Scheduler settings
 	MaxConcurrent int           // Max concurrent requests allowed through the scheduler
 	QueueTimeout  time.Duration // How long a request can wait in the queue
@@ -45,6 +54,7 @@ type Config struct {
 	// Traffic logging settings
 	LogFilePath   string // Path to traffic log file (JSON Lines)
 	LogBufferSize int    // Write buffer size in bytes
+	IPSalt        string // Salt used for hashing client IPs for privacy
 
 	// ML Inference settings
 	ONNXSharedLibraryPath string // Path to the downloaded ONNX Runtime shared library (.so, .dll, .dylib)
@@ -90,6 +100,15 @@ func Load() *Config {
 		BackendURL:     envOrDefault("TURBOSH_BACKEND", "http://localhost:9092"),
 		TrustedProxies: validProxies,
 
+		// TLS
+		TLSEnabled:  envOrDefaultBool("TURBOSH_TLS_ENABLED", false),
+		TLSCertFile: envOrDefault("TURBOSH_TLS_CERT", ""),
+		TLSKeyFile:  envOrDefault("TURBOSH_TLS_KEY", ""),
+
+		// Metrics
+		MetricsPort:    envOrDefault("TURBOSH_METRICS_PORT", ":9090"),
+		MetricsEnabled: envOrDefaultBool("TURBOSH_METRICS_ENABLED", true),
+
 		// Scheduler
 		MaxConcurrent: envOrDefaultInt("TURBOSH_MAX_CONCURRENT", 100),
 		QueueTimeout:  envOrDefaultDuration("TURBOSH_QUEUE_TIMEOUT", 10*time.Second),
@@ -118,6 +137,7 @@ func Load() *Config {
 		// Traffic logging
 		LogFilePath:   envOrDefault("TURBOSH_LOG_FILE_PATH", "logs/traffic.jsonl"),
 		LogBufferSize: envOrDefaultInt("TURBOSH_LOG_BUFFER_SIZE", 4096),
+		IPSalt:        envOrDefault("TURBOSH_IP_SALT", ""),
 
 		// ML Inference
 		ONNXSharedLibraryPath: envOrDefault("TURBOSH_ONNX_LIB_PATH", ""),
@@ -207,6 +227,15 @@ func envOrDefaultSlice(key string, fallback []string) []string {
 		}
 		if len(cleaned) > 0 {
 			return cleaned
+		}
+	}
+	return fallback
+}
+
+func envOrDefaultBool(key string, fallback bool) bool {
+	if val := os.Getenv(key); val != "" {
+		if b, err := strconv.ParseBool(val); err == nil {
+			return b
 		}
 	}
 	return fallback

@@ -28,8 +28,9 @@ func New(backendURL string) (*ReverseProxy, error) {
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 		log.Printf("[turboSH] proxy error: %v", err)
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadGateway)
-		w.Write([]byte(`{"error":"bad_gateway","message":"Backend server is unreachable."}`))
+		if _, writeErr := w.Write([]byte(`{"error":"bad_gateway","message":"Backend server is unreachable."}`)); writeErr != nil {
+			log.Printf("[turboSH] failed to write proxy error response: %v", writeErr)
+		}
 	}
 
 	return &ReverseProxy{

@@ -56,6 +56,9 @@ func NewTrafficLogger(cfg *config.Config, mlp MLMetricsRecorder) (*TrafficLogger
 	if cfg == nil {
 		return nil, fmt.Errorf("cfg is nil")
 	}
+	if cfg.IPSalt != "" {
+		SetIPSalt(cfg.IPSalt)
+	}
 	filePath := cfg.LogFilePath
 	bufferSize := cfg.LogBufferSize
 	if filePath == "" {
@@ -96,9 +99,8 @@ func (tl *TrafficLogger) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 
-		// Use custom extractor to guarantee we get the real IP behind load balancers
-		clientIP := GetClientIP(c.Request, tl.cfg)
-		ipHash := RedactIP(clientIP)
+		// Extract canonical IP hash from context (established once at ingress)
+		ipHash := GetCanonicalIPHash(c, tl.cfg)
 
 		// Let the rest of the pipeline run (proxy, etc.)
 		c.Next()

@@ -20,6 +20,7 @@ import (
 
 // Components holds all the middleware components for the pipeline.
 type Components struct {
+	Config        *config.Config
 	Scheduler     *scheduler.Scheduler
 	RateLimiter   *security.RateLimiter
 	TrafficRules  *security.TrafficRules
@@ -95,6 +96,7 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 	}()
 
 	return &Components{
+		Config:        cfg,
 		Scheduler:     sched,
 		RateLimiter:   rateLimiter,
 		TrafficRules:  trafficRules,
@@ -109,9 +111,10 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 //
 // Request flow:
 //
-//	Client → Metrics → Scheduler → Traffic Logger → RateLimiter → TrafficRules → ML Inference → Cache → Proxy
+//	Client → Metrics → Client Identity → Scheduler → Traffic Logger → RateLimiter → TrafficRules → ML Inference → Cache → Proxy
 //
 // Design notes:
+//   - Client Identity establishes a canonical verified client IP and HMAC-SHA-256 hash for all downstream components
 //   - Traffic Logger wraps downstream handlers so ALL traffic (allowed, cached, throttled, blocked) is logged
 //   - Traffic Logger feeds all response metrics (status, latency) back to ML via RecordBackendResponse in real-time
 //   - ML Inference runs before Cache so it evaluates every request in real time and enforces block/throttle actions
@@ -123,6 +126,12 @@ func SetupMiddleware(router *gin.Engine, components *Components) {
 	// 0. Base Metrics (EPIC 8)
 	// Must run first to capture total proxy latency (including queue time).
 	router.Use(monitoring.MetricsMiddleware())
+
+	// 0.1 Canonical Client Identity (EPIC 5 / Section 5)
+	// Invariant: ONE REQUEST -> ONE CANONICAL CLIENT IDENTITY across ML, rate limiting, rules, logging
+	if components.Config != nil {
+		router.Use(logging.ClientIdentityMiddleware(components.Config))
+	}
 
 	// 1. Scheduler — concurrency control (first gate)
 	if components.Scheduler != nil {

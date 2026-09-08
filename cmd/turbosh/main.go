@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"net/url"
 
 	"github.com/gin-gonic/gin"
@@ -27,6 +28,18 @@ func main() {
 
 	monitoring.Register()
 
+	// 5.5: Run Prometheus metrics on dedicated internal listener rather than public API router
+	if cfg.MetricsEnabled {
+		go func() {
+			metricsMux := http.NewServeMux()
+			metricsMux.Handle("/metrics", promhttp.Handler())
+			log.Printf("[monitoring] Internal Prometheus metrics listening on %s/metrics", cfg.MetricsPort)
+			if err := http.ListenAndServe(cfg.MetricsPort, metricsMux); err != nil && err != http.ErrServerClosed {
+				log.Printf("[monitoring] ERROR: Internal metrics server failed: %v", err)
+			}
+		}()
+	}
+
 	rp, err := proxy.New(cfg.BackendURL)
 	if err != nil {
 		log.Fatalf("Failed to create reverse proxy: %v", err)
@@ -47,10 +60,6 @@ func main() {
 		}
 	}
 
-	router.GET("/metrics", gin.WrapH(promhttp.Handler()))
-
-	router.Use(monitoring.MetricsMiddleware())
-
 	components, err := proxy.NewComponents(cfg)
 	if err != nil {
 		log.Fatalf("Failed to initialize middleware components: %v", err)
@@ -65,8 +74,16 @@ func main() {
 	router.NoRoute(rp.Handler())
 
 	log.Printf("turboSH is running on %s → %s", cfg.ListenPort, rp.TargetURL())
-	log.Printf("Prometheus metrics available at %s/metrics", cfg.ListenPort)
-	if err := router.Run(cfg.ListenPort); err != nil {
-		log.Fatalf("Server failed: %v", err)
+
+	// 5.6: TLS / HTTPS termination configuration
+	if cfg.TLSEnabled {
+		log.Printf("[security] TLS termination enabled (Cert: %s, Key: %s)", cfg.TLSCertFile, cfg.TLSKeyFile)
+		if err := router.RunTLS(cfg.ListenPort, cfg.TLSCertFile, cfg.TLSKeyFile); err != nil {
+			log.Fatalf("Server failed with TLS: %v", err)
+		}
+	} else {
+		if err := router.Run(cfg.ListenPort); err != nil {
+			log.Fatalf("Server failed: %v", err)
+		}
 	}
 }

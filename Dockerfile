@@ -30,6 +30,10 @@ FROM debian:bookworm-slim
 # Install CA certificates to allow outgoing TLS connections if the proxy forwards to HTTPS backends
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
 
+# Create non-root system user and group
+RUN groupadd -g 10001 turbosh && \
+    useradd -u 10001 -g turbosh -s /bin/sh -d /app turbosh
+
 WORKDIR /app
 
 # Copy the compiled binary from builder
@@ -41,15 +45,22 @@ COPY --from=builder /app/onnx_lib /app/onnx_lib
 # Copy the actual exported ML model file required for inference
 COPY --from=builder /app/models/anomaly_model.onnx /app/models/anomaly_model.onnx
 
+# Ensure permissions for non-root user (including writable logs directory)
+RUN mkdir -p /app/logs && chown -R turbosh:turbosh /app
+
 # Ensure the proxy knows where to find the ONNX runtime library
 ENV TURBOSH_ONNX_LIB_PATH="/app/onnx_lib/libonnxruntime.so"
 
 # Default configuration variables (operators override these via 'docker run -e')
 ENV TURBOSH_PORT="8080"
-ENV TURBOSH_BACKEND="http://localhost:9090"
+ENV TURBOSH_BACKEND="http://localhost:9092"
+ENV TURBOSH_METRICS_PORT=":9090"
 
-# Expose the proxy port
-EXPOSE 8080
+# Expose proxy traffic port and internal metrics port
+EXPOSE 8080 9090
+
+# Run as non-root user
+USER turbosh
 
 # Run the proxy
 ENTRYPOINT ["/app/turbosh"]

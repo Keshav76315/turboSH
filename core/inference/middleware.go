@@ -199,8 +199,7 @@ func (mlp *MLProtection) recordRequest(ip string, endpoint string) RequestFeatur
 // anomalies via ONNX, evaluates them against the Decision Engine, and takes action.
 func (mlp *MLProtection) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		clientIP := logging.GetClientIP(c.Request, mlp.cfg)
-		ipHash := logging.RedactIP(clientIP)
+		ipHash := logging.GetCanonicalIPHash(c, mlp.cfg)
 		endpoint := c.Request.URL.Path
 
 		// 1. Extract dynamic features
