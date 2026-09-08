@@ -32,24 +32,24 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (le) (rate(turbosh_request_duration_seconds_bucket[1m])))",
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(turbosh_request_latency_ms_bucket[1m])))",
           "legendFormat": "p50",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(turbosh_request_duration_seconds_bucket[1m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(turbosh_request_latency_ms_bucket[1m])))",
           "legendFormat": "p95",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (le) (rate(turbosh_request_duration_seconds_bucket[1m])))",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(turbosh_request_latency_ms_bucket[1m])))",
           "legendFormat": "p99",
           "refId": "C"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "s",
+          "unit": "ms",
           "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 }
         }
       }
@@ -61,7 +61,7 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(rate(turbosh_cache_hits_total[5m])) / clamp_min(sum(rate(turbosh_cache_hits_total[5m])) + sum(rate(turbosh_cache_misses_total[5m])), 1e-10)",
+          "expr": "sum(rate(turbosh_cache_operations_total{result=\"hit\"}[5m])) / clamp_min(sum(rate(turbosh_cache_operations_total[5m])), 1e-10)",
           "legendFormat": "Hit Rate",
           "refId": "A"
         }
@@ -88,12 +88,12 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "rate(turbosh_cache_hits_total[1m])",
+          "expr": "rate(turbosh_cache_operations_total{result=\"hit\"}[1m])",
           "legendFormat": "Hits/s",
           "refId": "A"
         },
         {
-          "expr": "rate(turbosh_cache_misses_total[1m])",
+          "expr": "rate(turbosh_cache_operations_total{result=\"miss\"}[1m])",
           "legendFormat": "Misses/s",
           "refId": "B"
         }
@@ -112,7 +112,7 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(turbosh_scheduler_active) / clamp_min(sum(turbosh_scheduler_capacity), 1)",
+          "expr": "sum(turbosh_scheduler_active_requests) / clamp_min(sum(turbosh_scheduler_capacity), 1)",
           "legendFormat": "Utilization",
           "refId": "A"
         }
@@ -139,17 +139,17 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "rate(turbosh_ml_blocks_total[1m])",
+          "expr": "rate(turbosh_anomaly_alerts_total{action=\"block\"}[1m])",
           "legendFormat": "Blocks/s",
           "refId": "A"
         },
         {
-          "expr": "rate(turbosh_ml_throttles_total[1m])",
+          "expr": "rate(turbosh_anomaly_alerts_total{action=\"rate_limit\"}[1m])",
           "legendFormat": "Throttles/s",
           "refId": "B"
         },
         {
-          "expr": "rate(turbosh_ml_allows_total[1m])",
+          "expr": "rate(turbosh_anomaly_alerts_total{action=\"allow\"}[1m])",
           "legendFormat": "Allows/s",
           "refId": "C"
         }
@@ -197,7 +197,7 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(turbosh_ml_blocks_total)",
+          "expr": "sum(turbosh_anomaly_alerts_total{action=\"block\"})",
           "legendFormat": "Total Blocks",
           "refId": "A"
         }
@@ -216,7 +216,7 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(turbosh_ml_throttles_total)",
+          "expr": "sum(turbosh_anomaly_alerts_total{action=\"rate_limit\"})",
           "legendFormat": "Total Throttles",
           "refId": "A"
         }
@@ -235,7 +235,7 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(turbosh_ml_allows_total)",
+          "expr": "sum(turbosh_anomaly_alerts_total{action=\"allow\"})",
           "legendFormat": "Total Allows",
           "refId": "A"
         }

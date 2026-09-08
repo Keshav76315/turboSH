@@ -2,100 +2,37 @@ package monitoring
 
 import (
 	"strconv"
-	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
+	pipelinemon "github.com/Keshav76315/turboSH/pipeline/monitoring"
 )
 
 var (
-	RequestsTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "turbosh_requests_total",
-			Help: "Total HTTP requests processed by turboSH.",
-		},
-		[]string{"method", "status"},
-	)
+	// Aliases to canonical pipeline metrics
+	RequestsTotal     = pipelinemon.RequestsTotal
+	RequestLatency    = pipelinemon.RequestLatency
+	SchedulerActive   = pipelinemon.SchedulerActive
+	SchedulerWaiting  = pipelinemon.SchedulerWaiting
+	SchedulerCapacity = pipelinemon.SchedulerCapacity
+	CacheOps          = pipelinemon.CacheOps
+	AnomalyAlerts     = pipelinemon.AnomalyAlerts
 
-	RequestDuration = prometheus.NewHistogram(
-		prometheus.HistogramOpts{
-			Name:    "turbosh_request_duration_seconds",
-			Help:    "Latency distribution of proxied requests.",
-			Buckets: prometheus.DefBuckets,
-		},
-	)
-
-	CacheHitsTotal = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "turbosh_cache_hits_total",
-			Help: "Total cache hits.",
-		},
-	)
-
-	CacheMissesTotal = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "turbosh_cache_misses_total",
-			Help: "Total cache misses.",
-		},
-	)
-
-	MLBlocksTotal = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "turbosh_ml_blocks_total",
-			Help: "Total requests blocked by ML anomaly detection.",
-		},
-	)
-
-	MLThrottlesTotal = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "turbosh_ml_throttles_total",
-			Help: "Total requests throttled by ML anomaly detection.",
-		},
-	)
-
-	MLAllowsTotal = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "turbosh_ml_allows_total",
-			Help: "Total requests allowed by ML anomaly detection.",
-		},
-	)
-
-	SchedulerActive = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "turbosh_scheduler_active",
-			Help: "Number of requests currently being processed by the scheduler.",
-		},
-	)
-
-	SchedulerCapacity = prometheus.NewGauge(
-		prometheus.GaugeOpts{
-			Name: "turbosh_scheduler_capacity",
-			Help: "Maximum concurrent requests allowed by the scheduler.",
-		},
-	)
-
-	registerOnce sync.Once
+	// Backward-compatible counters delegating to canonical vector metrics
+	CacheHitsTotal   = pipelinemon.CacheOps.WithLabelValues("hit")
+	CacheMissesTotal = pipelinemon.CacheOps.WithLabelValues("miss")
+	MLBlocksTotal    = pipelinemon.AnomalyAlerts.WithLabelValues("block")
+	MLThrottlesTotal = pipelinemon.AnomalyAlerts.WithLabelValues("rate_limit")
+	MLAllowsTotal    = pipelinemon.AnomalyAlerts.WithLabelValues("allow")
 )
 
+// Register is kept for backwards compatibility; pipeline metrics are auto-registered via promauto.
+// Making this a no-op prevents duplicate descriptor panics on startup (Section 3.2 / 8.1).
 func Register() {
-	registerOnce.Do(func() {
-		prometheus.MustRegister(
-			RequestsTotal,
-			RequestDuration,
-			CacheHitsTotal,
-			CacheMissesTotal,
-			MLBlocksTotal,
-			MLThrottlesTotal,
-			MLAllowsTotal,
-			SchedulerActive,
-			SchedulerCapacity,
-		)
-	})
 }
 
 func RecordRequest(method string, statusCode int, duration time.Duration) {
 	RequestsTotal.WithLabelValues(method, strconv.Itoa(statusCode)).Inc()
-	RequestDuration.Observe(duration.Seconds())
+	RequestLatency.WithLabelValues(method).Observe(float64(duration.Microseconds()) / 1000.0)
 }
 
 func RecordMLBlock()    { MLBlocksTotal.Inc() }

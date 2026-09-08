@@ -79,6 +79,7 @@ Unbounded Input Stream (Network Traffic)
 - **Security Tests (`core/security`)**:
   - `TestRateLimiterCleanup`: Verifies inactive IP buckets are pruned while active buckets remain.
   - `TestTrafficRulesCleanup`: Verifies expired sliding window timestamps are pruned.
+  - `TestCleanupManagersStop`: Verifies cleanup manager stop channels terminate background worker goroutines.
 - **Inference Tests (`core/inference`)**:
   - `TestMLProtectionPruneAll`: Verifies abandoned client IPs are purged.
   - `TestMLProtectionWindowedEndpoints`: Verifies old endpoints age out and do not contaminate Shannon entropy.
@@ -89,4 +90,4 @@ Unbounded Input Stream (Network Traffic)
 ```bash
 go test -race ./...
 ```
-**Result:** Passed across all packages with zero race warnings, deadlocks, or memory leaks.
+**Result:** Passed across all packages with zero data races detected and all unit tests passing.

@@ -35,6 +35,12 @@ var (
 		Help: "Number of requests currently blocked waiting for a scheduler slot",
 	})
 
+	// SchedulerCapacity measures the maximum concurrent requests configured for the scheduler.
+	SchedulerCapacity = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "turbosh_scheduler_capacity",
+		Help: "Maximum concurrent requests allowed by the scheduler",
+	})
+
 	// CacheOps counts cache hits versus misses.
 	CacheOps = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "turbosh_cache_operations_total",

@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -19,7 +20,7 @@ func TestComponentsLifecycle(t *testing.T) {
 		EndpointAbuseWindow:    1 * time.Second,
 		CacheCapacity:          10,
 		CacheTTL:               1 * time.Minute,
-		LogFilePath:            "logs/test_traffic.jsonl",
+		LogFilePath:            filepath.Join(t.TempDir(), "test_traffic.jsonl"),
 		LogBufferSize:          1024,
 	}
 
