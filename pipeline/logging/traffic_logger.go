@@ -97,8 +97,6 @@ func NewTrafficLogger(cfg *config.Config, mlp MLMetricsRecorder) (*TrafficLogger
 	return tl, nil
 }
 
-// dirOf returns the directory portion of a file path.
-
 // ---------- middleware ----------
 
 // Middleware returns a gin.HandlerFunc that logs every request.

@@ -4,14 +4,20 @@ FROM golang:1.24-bookworm AS builder
 # Install build dependencies (gcc, libc-dev) required for CGO and wget for ONNX
 RUN apt-get update && apt-get install -y gcc libc-dev wget ca-certificates && rm -rf /var/lib/apt/lists/*
 
+# Target architecture supplied by docker buildx (defaults to amd64)
+ARG TARGETARCH
+
 WORKDIR /app
 
 # Download Linux ONNX Runtime (v1.17.1 to align with yalue/onnxruntime_go v1.9.0)
-RUN wget -qO onnurl.tgz https://github.com/microsoft/onnxruntime/releases/download/v1.17.1/onnxruntime-linux-x64-1.17.1.tgz && \
+# Supports both x86_64 (amd64) and aarch64 (arm64)
+RUN ARCH="${TARGETARCH:-amd64}" && \
+    if [ "$ARCH" = "arm64" ]; then ONNX_ARCH="aarch64"; else ONNX_ARCH="x64"; fi && \
+    wget -qO onnurl.tgz "https://github.com/microsoft/onnxruntime/releases/download/v1.17.1/onnxruntime-linux-${ONNX_ARCH}-1.17.1.tgz" && \
     tar -xzf onnurl.tgz && \
     mkdir -p /app/onnx_lib && \
-    mv onnxruntime-linux-x64-1.17.1/lib/libonnxruntime.so.1.17.1 /app/onnx_lib/libonnxruntime.so && \
-    rm -rf onnurl.tgz onnxruntime-linux-x64-1.17.1
+    mv onnxruntime-linux-${ONNX_ARCH}-1.17.1/lib/libonnxruntime.so.1.17.1 /app/onnx_lib/libonnxruntime.so && \
+    rm -rf onnurl.tgz onnxruntime-linux-${ONNX_ARCH}-1.17.1
 
 # Download Go modules
 COPY go.mod go.sum ./
@@ -22,7 +28,7 @@ COPY . .
 
 # Build the proxy binary with CGO enabled
 # We compile cmd/turbosh/main.go into a binary named 'turbosh'
-RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o turbosh ./cmd/turbosh/main.go
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=${TARGETARCH:-amd64} go build -o turbosh ./cmd/turbosh/main.go
 
 # --- Runtime Stage ---
 FROM debian:bookworm-slim

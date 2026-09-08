@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"os"
@@ -13,6 +14,15 @@ import (
 )
 
 const targetURL = "http://localhost:8080"
+
+var httpClient = &http.Client{
+	Timeout: 10 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConns:        1000,
+		MaxIdleConnsPerHost: 1000,
+		IdleConnTimeout:     90 * time.Second,
+	},
+}
 
 type Result struct {
 	StatusCode int
@@ -37,7 +47,6 @@ type PhaseStats struct {
 }
 
 func doRequest(path string, clientIP string) Result {
-	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", targetURL+path, nil)
 	if err != nil {
 		return Result{Err: err}
@@ -47,12 +56,13 @@ func doRequest(path string, clientIP string) Result {
 	}
 
 	start := time.Now()
-	resp, requestErr := client.Do(req)
+	resp, requestErr := httpClient.Do(req)
 	latency := time.Since(start)
 	if requestErr != nil {
 		return Result{Err: requestErr, Latency: latency}
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
 	return Result{StatusCode: resp.StatusCode, Latency: latency}
 }
 
@@ -330,6 +340,7 @@ func main() {
 	allStats = append(allStats, spike)
 
 	report := generateReport(allStats)
+	_ = os.MkdirAll("docs", 0755)
 	err := os.WriteFile("docs/benchmark_report.md", []byte(report), 0644)
 	if err != nil {
 		fmt.Printf("\nFailed to write report: %v\n", err)

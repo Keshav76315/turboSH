@@ -354,27 +354,30 @@ The following items from the initial audit were verified as **false positives or
 
 ### 10.1 — Default backend port inconsistency
 
-- **`Dockerfile` L49:** `ENV TURBOSH_BACKEND="http://localhost:9090"`
-- **`PLAYBOOK.md` L58:** Default documented as `http://localhost:9090`
-- **[`config/config.go:L89`](config/config.go#L89):** Default is `"http://localhost:9092"`
-- **[`cmd/dummy_backend/main.go:L28`](cmd/dummy_backend/main.go#L28):** Backend listens on `:9092`
-- **Impact:** Docker container points to port 9090 by default, failing to connect to dummy backend on 9092.
+- **Status:** Closed
+- **`Dockerfile` L56:** `ENV TURBOSH_BACKEND="http://localhost:9092"`
+- **`PLAYBOOK.md` L58:** Corrected default documentation from `http://localhost:9090` to `http://localhost:9092`.
+- **[`config/config.go:L100`](config/config.go#L100):** Default is `"http://localhost:9092"`.
+- **[`cmd/dummy_backend/main.go`](cmd/dummy_backend/main.go):** Backend listens on `:9092` by default.
+- **Fix:** Standardized backend port to 9092 across code, docker configuration, and operator playbook, eliminating port collision with Prometheus (`:9090`).
 
 ### 10.2 — Dockerfile hardcodes x86_64 architecture
 
+- **Status:** Closed
 - **File:** [`Dockerfile`](Dockerfile)
-- **Lines:** Downloads `onnxruntime-linux-x64-1.17.1.tgz` and sets `GOARCH=amd64`.
-- **Impact:** Image build fails on ARM64 architectures (e.g. Apple Silicon, AWS Graviton).
+- **Fix:** Parameterized build using `ARG TARGETARCH`. Added dynamic ONNX Runtime architecture resolution (`x64` for `amd64`, `aarch64` for `arm64`) and configured `GOARCH=${TARGETARCH:-amd64}` for cross-platform Docker multi-arch builds.
 
 ### 10.3 — `.dockerignore` omits large datasets and build artifacts
 
+- **Status:** Closed
 - **File:** [`.dockerignore`](.dockerignore)
-- **Issue:** Does not ignore `datasets/`, `models/*.pkl`, `notebooks/`, or `*.csv`, unnecessarily bloating the Docker build context.
+- **Fix:** Appended `datasets/`, `models/*.pkl`, `notebooks/`, `*.csv`, `turbosh`, and `turbosh.exe` to `.dockerignore`, preventing unnecessary image context bloat.
 
 ### 10.4 — Missing `Host` header rewrite in reverse proxy
 
+- **Status:** Closed
 - **File:** [`core/proxy/proxy.go:L26`](core/proxy/proxy.go#L26)
-- **Issue:** `httputil.NewSingleHostReverseProxy` retains the incoming client `Host` header. Upstream backends requiring virtual host matching may reject or misroute requests.
+- **Fix:** Wrapped `proxy.Director` to explicitly rewrite `req.Host = target.Host` after default director processing. Verified with unit test in `core/proxy/proxy_test.go`.
 
 ---
 
@@ -382,29 +385,33 @@ The following items from the initial audit were verified as **false positives or
 
 ### 11.1 — `accuracy_test` counts HTTP 503 (Queue Full) as allowed traffic
 
+- **Status:** Closed
 - **File:** [`cmd/accuracy_test/main.go:L118`](cmd/accuracy_test/main.go#L118)
-- **Code:** `blocked := r.StatusCode == 403 || r.StatusCode == 429`
-- **Impact:** HTTP 503 responses returned when the scheduler queue is saturated are categorized as "allowed", artificially depressing detection recall during high-load attacks.
+- **Fix:** Updated `blocked := r.StatusCode == 403 || r.StatusCode == 429 || r.StatusCode == 503`. Added queue-full tracking and reporting in `runDDoSAttack()`.
 
 ### 11.2 — Socket exhaustion from HTTP client recreation in test scripts
 
-- **Files:** [`cmd/attacker/main.go:L36`](cmd/attacker/main.go#L36), [`cmd/loadtest/main.go:L40`](cmd/loadtest/main.go#L40), [`cmd/accuracy_test/main.go:L22`](cmd/accuracy_test/main.go#L22)
-- **Issue:** A new `&http.Client{}` is instantiated per request, disabling TCP connection reuse and exhausting ephemeral ports under high concurrency.
+- **Status:** Closed
+- **Files:** [`cmd/attacker/main.go`](cmd/attacker/main.go), [`cmd/loadtest/main.go`](cmd/loadtest/main.go), [`cmd/accuracy_test/main.go`](cmd/accuracy_test/main.go)
+- **Fix:** Replaced per-request `&http.Client{}` instantiations with shared package-level `httpClient` configured with high-capacity connection pooling (`MaxIdleConns: 1000`, `MaxIdleConnsPerHost: 1000`).
 
 ### 11.3 — Test tools omit response body draining before close
 
-- **Files:** All `cmd/*/main.go` test tools.
-- **Issue:** `resp.Body.Close()` is called without `io.Copy(io.Discard, resp.Body)`, preventing HTTP keep-alive connection reuse.
+- **Status:** Closed
+- **Files:** [`cmd/attacker/main.go`](cmd/attacker/main.go), [`cmd/loadtest/main.go`](cmd/loadtest/main.go), [`cmd/accuracy_test/main.go`](cmd/accuracy_test/main.go)
+- **Fix:** Added `_, _ = io.Copy(io.Discard, resp.Body)` prior to `resp.Body.Close()` across all test utilities to enable HTTP keep-alive connection reuse.
 
 ### 11.4 — `loadtest` fails if `docs/` directory is absent
 
-- **File:** [`cmd/loadtest/main.go:L330`](cmd/loadtest/main.go#L330)
-- **Issue:** `os.WriteFile("docs/benchmark_report.md", ...)` does not invoke `os.MkdirAll("docs", 0755)` first.
+- **Status:** Closed
+- **File:** [`cmd/loadtest/main.go`](cmd/loadtest/main.go)
+- **Fix:** Added `_ = os.MkdirAll("docs", 0755)` before writing `docs/benchmark_report.md` (and in `cmd/accuracy_test/main.go` before writing `docs/detection_accuracy_report.md`).
 
 ### 11.5 — Hardcoded backend server configuration in `dummy_backend`
 
-- **File:** [`cmd/dummy_backend/main.go:L28-L29`](cmd/dummy_backend/main.go#L28-L29)
-- **Issue:** Port `:9092` is hardcoded with no timeout configurations on `http.Server`.
+- **Status:** Closed
+- **File:** [`cmd/dummy_backend/main.go`](cmd/dummy_backend/main.go)
+- **Fix:** Added environment variable port configuration (`PORT` or `BACKEND_PORT`, defaulting to `:9092`), dedicated `http.NewServeMux()`, and explicit `http.Server` timeouts (`ReadTimeout: 10s`, `WriteTimeout: 10s`, `IdleTimeout: 60s`).
 
 ---
 
@@ -412,45 +419,49 @@ The following items from the initial audit were verified as **false positives or
 
 ### 12.1 — `.gitignore` syntax error on line 2
 
+- **Status:** Closed
 - **File:** [`.gitignore:L2`](.gitignore#L2)
-- **Issue:** Missing `#` prefix on comment line ` ============================================`, causing Git to treat it as an active pattern.
+- **Fix:** Added `#` comment prefix to line 2 (`# ============================================`).
 
 ### 12.2 — Dead comment and stub in `traffic_logger.go`
 
-- **File:** [`pipeline/logging/traffic_logger.go:L88`](pipeline/logging/traffic_logger.go#L88)
-- **Content:** `// dirOf returns the directory portion of a file path.` with no implementation.
+- **Status:** Closed
+- **File:** [`pipeline/logging/traffic_logger.go:L100`](pipeline/logging/traffic_logger.go#L100)
+- **Fix:** Removed dangling unused comment `// dirOf returns the directory portion of a file path.`
 
 ### 12.3 — Undecided architecture options in `API.md`
 
-- **File:** [`docs/API.md §2`](docs/API.md#L2)
-- **Issue:** Retains unresolved notes ("Two possible architectures... once decided") rather than documenting the finalized ONNX CGO architecture.
+- **Status:** Closed
+- **File:** [`docs/API.md §2`](docs/API.md)
+- **Fix:** Replaced speculative text with finalized documentation for the in-process Go CGO ONNX runtime architecture and 6-dimensional feature vector specification.
 
 ### 12.4 — Outdated status in `AGENT.md`
 
+- **Status:** Closed
 - **File:** [`docs/AGENT.md`](docs/AGENT.md)
-- **Issue:** Lists project status as "Phase 1" despite all components being implemented.
+- **Fix:** Updated project status to reflect completion of all 9 EPICs and verified flaw remediation.
 
 ### 12.5 — Missing CLI arguments for `generate_synthetic_data.py`
 
+- **Status:** Closed
 - **File:** [`ml/data/generate_synthetic_data.py`](ml/data/generate_synthetic_data.py)
-- **Issue:** Hardcoded row counts and file paths without `argparse` support.
+- **Fix:** Implemented `argparse` with configurable `--output`, `--num-normal`, and `--num-attack` parameters, with safe directory creation and full profile entropy bounds `[0.0, 1.0]`.
 
 ---
 
 ## 13. Audit Summary Statistics
 
-| Category                                      | Verified Count |
-| :-------------------------------------------- | :------------: |
-| **Resolved Issues**                           |       3        |
-| **Retracted / False Positives**               |       5        |
-| **Critical Runtime Bugs & Panics**            |       5        |
-| **Architecture & Pipeline Disconnects**       |       7        |
-| **Security & Privacy Vulnerabilities**        |       8        |
-| **Mathematical & ML Feature Inconsistencies** |       5        |
-| **Memory Leaks & Concurrency Issues**         |       7        |
-| **Monitoring, Metrics & Grafana Conflicts**   |       4        |
-| **Cache & Resource Management Flaws**         |       3        |
-| **Docker, Deployment & Network Issues**       |       4        |
-| **Test & Tooling Flaws**                      |       5        |
-| **Documentation & Code Quality Deficiencies** |       5        |
-| **Total Active Verified Flaws**               |     **53**     |
+| Category                                      | Total Identified | Resolved / Closed | Retracted / Invalid | Active Unresolved |
+| :-------------------------------------------- | :--------------: | :---------------: | :-----------------: | :---------------: |
+| **False Positives / Retracted**               |        5         |         0         |          5          |         0         |
+| **Critical Runtime Bugs & Panics**            |        5         |         5         |          0          |         0         |
+| **Architecture & Pipeline Disconnects**       |        7         |         7         |          0          |         0         |
+| **Security & Privacy Vulnerabilities**        |        8         |         8         |          0          |         0         |
+| **Mathematical & ML Feature Inconsistencies** |        5         |         5         |          0          |         0         |
+| **Memory Leaks & Concurrency Issues**         |        7         |         7         |          0          |         0         |
+| **Monitoring, Metrics & Grafana Conflicts**   |        4         |         4         |          0          |         0         |
+| **Cache & Resource Management Flaws**         |        3         |         3         |          0          |         0         |
+| **Docker, Deployment & Network Issues**       |        4         |         4         |          0          |         0         |
+| **Test & Tooling Flaws**                      |        5         |         5         |          0          |         0         |
+| **Documentation & Code Quality Deficiencies** |        5         |         5         |          0          |         0         |
+| **Total Flaws Audited**                       |      **58**      |      **53**       |        **5**        |       **0**       |

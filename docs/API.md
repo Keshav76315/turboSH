@@ -89,45 +89,40 @@ const (
 
 ---
 
-## 2. ML Inference API
+## 2. ML Inference Architecture & API
 
-Two possible architectures. The chosen approach will be documented here once decided.
+turboSH embeds the ML inference engine directly into the Go process via in-process ONNX Runtime CGO bindings (`yalue/onnxruntime_go`). No external Python service or HTTP microservice is required for runtime operation. Python is utilized strictly offline for dataset generation, model training, and ONNX model export.
 
-### Option A — FastAPI Service (Python)
+### 2.1 In-Process Go Inference Interface
 
-```
-POST /predict
-Content-Type: application/json
-```
+The Go inference engine implements an in-memory scoring function:
 
-**Request:**
-
-```json
-{
-  "ip_hash": "a1b2c3d4",
-  "requests_per_ip_10s": 25,
-  "requests_per_ip_60s": 80,
-  "endpoint_entropy": 0.3,
-  "latency_spike": true,
-  "error_rate": 0.15,
-  "request_variance": 12.5
+```go
+type MLProtection interface {
+    // Predict runs model inference on a normalized 6-dimensional feature vector.
+    // Returns a continuous anomaly score in [0.0, 1.0].
+    Predict(features []float32) (float64, error)
 }
 ```
 
-**Response:**
+### 2.2 Feature Vector Schema
 
-```json
-{
-  "ip_hash": "a1b2c3d4",
-  "anomaly_score": 0.87,
-  "risk_level": "HIGH",
-  "recommended_action": "BLOCK"
-}
-```
+The feature vector passed to `Predict` contains 6 float32 values:
 
-### Implementation: Embedded ONNX Runtime (Go)
+| Index | Feature | Range / Type | Description |
+| :---: | :------ | :----------- | :---------- |
+| 0 | `requests_per_ip_10s` | `float32 >= 0` | Request count from the canonical IP in the last 10s window |
+| 1 | `requests_per_ip_60s` | `float32 >= 0` | Request count from the canonical IP in the last 60s window |
+| 2 | `endpoint_entropy` | `[0.0, 1.0]` | Normalized Shannon entropy of accessed endpoints |
+| 3 | `latency_spike` | `0.0` or `1.0` | Boolean indicator (1.0 if max > 1.5x avg and max > 100ms) |
+| 4 | `error_rate` | `[0.0, 1.0]` | Fraction of 4xx/5xx responses in the active window |
+| 5 | `request_variance` | `float32 >= 0` | Variance of request inter-arrival intervals |
 
-This is the standard production implementation for turboSH. It bundles the ML inference engine directly into the Go binary via ONNX Runtime bindings. The inference engine is integrated as middleware, extracting live features and passing scores to the Decision Engine. No external Python service is required for production.
+### 2.3 Middleware Integration
+
+1. The ML middleware extracts live windowed features per IP via an in-memory sliding window ring buffer.
+2. The in-process ONNX session evaluates the feature vector and returns a continuous anomaly score in `[0.0, 1.0]`.
+3. The `DecisionEngine` evaluates the score against configured thresholds (`block > 0.85`, `rate_limit > 0.65`) and returns `ActionAllow`, `ActionRateLimit`, or `ActionBlock`.
 
 ---
 

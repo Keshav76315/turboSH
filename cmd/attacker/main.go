@@ -2,12 +2,22 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"sync"
 	"time"
 )
 
 const targetURL = "http://localhost:8080" // turboSH proxy port
+
+var httpClient = &http.Client{
+	Timeout: 5 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConns:        1000,
+		MaxIdleConnsPerHost: 1000,
+		IdleConnTimeout:     90 * time.Second,
+	},
+}
 
 func main() {
 	fmt.Println("Starting Attack Simulation...")
@@ -33,15 +43,13 @@ func main() {
 }
 
 func sendRequest(path string) {
-	client := &http.Client{
-		Timeout: 5 * time.Second,
-	}
-	resp, err := client.Get(targetURL + path)
+	resp, err := httpClient.Get(targetURL + path)
 	if err != nil {
 		fmt.Printf("Request Failed: %v\n", err)
 		return
 	}
 	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
 	fmt.Printf("GET %s -> Status: %d\n", path, resp.StatusCode)
 }
 

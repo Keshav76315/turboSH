@@ -13,3 +13,9 @@ Dockerfile
 docker-compose.yml
 PLAYBOOK.md
 README.md
+datasets/
+notebooks/
+models/*.pkl
+*.csv
+turbosh
+turbosh.exe

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	"os"
@@ -12,6 +13,15 @@ import (
 
 const targetURL = "http://localhost:8080"
 
+var httpClient = &http.Client{
+	Timeout: 10 * time.Second,
+	Transport: &http.Transport{
+		MaxIdleConns:        1000,
+		MaxIdleConnsPerHost: 1000,
+		IdleConnTimeout:     90 * time.Second,
+	},
+}
+
 type RequestResult struct {
 	StatusCode int
 	IsAttack   bool
@@ -19,7 +29,6 @@ type RequestResult struct {
 }
 
 func doRequest(path string, clientIP string) (int, error) {
-	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", targetURL+path, nil)
 	if err != nil {
 		return 0, err
@@ -28,11 +37,12 @@ func doRequest(path string, clientIP string) (int, error) {
 		req.Header.Set("X-Forwarded-For", clientIP)
 	}
 
-	resp, err := client.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return 0, err
 	}
-	resp.Body.Close()
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
 	return resp.StatusCode, nil
 }
 
@@ -78,15 +88,18 @@ func runDDoSAttack() []RequestResult {
 
 	blocked := 0
 	throttled := 0
+	queueFull := 0
 	for _, r := range results {
 		if r.StatusCode == 403 {
 			blocked++
 		} else if r.StatusCode == 429 {
 			throttled++
+		} else if r.StatusCode == 503 {
+			queueFull++
 		}
 	}
-	fmt.Printf("  Sent: 200 | Blocked (403): %d | Throttled (429): %d | Allowed: %d\n",
-		blocked, throttled, 200-blocked-throttled)
+	fmt.Printf("  Sent: 200 | Blocked (403): %d | Throttled (429): %d | Queue Full (503): %d | Allowed: %d\n",
+		blocked, throttled, queueFull, 200-blocked-throttled-queueFull)
 
 	return results
 }
@@ -115,7 +128,8 @@ func computeMetrics(results []RequestResult) (tp, tn, fp, fn int) {
 		if r.Err != nil {
 			continue
 		}
-		blocked := r.StatusCode == 403 || r.StatusCode == 429
+		// 11.1: 503 (Queue Full) indicates shed traffic under high load and is counted as protected/blocked
+		blocked := r.StatusCode == 403 || r.StatusCode == 429 || r.StatusCode == 503
 		if r.IsAttack && blocked {
 			tp++
 		} else if r.IsAttack && !blocked {
@@ -244,6 +258,7 @@ func main() {
 
 	report := generateReport(normalResults, ddosResults, scrapingResults)
 
+	_ = os.MkdirAll("docs", 0755)
 	err := os.WriteFile("docs/detection_accuracy_report.md", []byte(report), 0644)
 	if err != nil {
 		fmt.Printf("\nFailed to write report: %v\n", err)

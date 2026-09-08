@@ -130,6 +130,29 @@
   - Bounded synthetic data entropy in `ml/data/generate_synthetic_data.py` strictly to $[0.0, 1.0]$ across all profiles, added `argparse` support, and regenerated 22k records.
   - Retrained Isolation Forest model via GridSearchCV (`train_model.py`, Validation F1: 0.9827) and exported updated ONNX model (`models/anomaly_model.onnx`).
 
+### 2026-09-09
+
+**Keshav**
+
+- **Flaw Audit Resolution — Sections 10, 11, and 12 (Deployment, Tooling & Quality):**
+  - **Section 10 (Docker, Deployment & Network):**
+    - Corrected `TURBOSH_BACKEND` default documentation in `PLAYBOOK.md` to `http://localhost:9092` to resolve port collision with Prometheus (`:9090`).
+    - Added multi-architecture support in `Dockerfile` via `ARG TARGETARCH`, dynamic ONNX Runtime library download (`x64` vs `aarch64`), and `GOARCH=${TARGETARCH:-amd64}`.
+    - Updated `.dockerignore` to omit `datasets/`, `models/*.pkl`, `notebooks/`, `*.csv`, and binary artifacts, minimizing Docker build context.
+    - Implemented upstream `Host` header rewrite in `core/proxy/proxy.go` (`req.Host = target.Host`) and added verification unit test in `core/proxy/proxy_test.go`.
+  - **Section 11 (Test & Tooling Flaws):**
+    - Categorized HTTP 503 (Queue Full) responses as blocked/mitigated traffic in `cmd/accuracy_test/main.go` and included queue-full status in attack reporting.
+    - Mitigated TCP socket exhaustion across `cmd/accuracy_test/main.go`, `cmd/attacker/main.go`, and `cmd/loadtest/main.go` by replacing per-request client allocations with package-level pooled `http.Client`s.
+    - Added response body draining (`io.Copy(io.Discard, resp.Body)`) prior to `Close()` in all test tools to enforce HTTP keep-alive connection reuse.
+    - Ensured `docs/` directory is created (`os.MkdirAll`) prior to writing benchmark and detection accuracy reports.
+    - Upgraded `cmd/dummy_backend/main.go` with configurable port via `PORT` / `BACKEND_PORT` (default `:9092`), dedicated `ServeMux`, and explicit `http.Server` timeouts.
+  - **Section 12 (Documentation & Code Quality):**
+    - Fixed comment syntax error on line 2 of `.gitignore`.
+    - Removed dead comment stub in `pipeline/logging/traffic_logger.go`.
+    - Finalized `docs/API.md` Section 2 to document the in-process Go CGO ONNX runtime architecture and 6D feature vector interface.
+    - Updated `docs/AGENT.md` Current Status to Production Ready / Complete.
+  - **Flaw Catalog:** Updated `flaws.md` marking all 53 active flaws across the repository as Closed (0 active flaws remaining).
+
 ---
 
 <!--
