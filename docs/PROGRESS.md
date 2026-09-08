@@ -116,7 +116,7 @@
 - Verified production-ready containerized deployment and monitoring stack.
   - Auto-generated `docs/detection_accuracy_report.md`.
 
-### 2026-09-08
+### 2026-09-09
 
 **Keshav**
 
@@ -129,11 +129,6 @@
   - Added unit test suite `pipeline/feature_extraction/test_feature_extractor.py` verifying entropy, sliding windows, and spike detection.
   - Bounded synthetic data entropy in `ml/data/generate_synthetic_data.py` strictly to $[0.0, 1.0]$ across all profiles, added `argparse` support, and regenerated 22k records.
   - Retrained Isolation Forest model via GridSearchCV (`train_model.py`, Validation F1: 0.9827) and exported updated ONNX model (`models/anomaly_model.onnx`).
-
-### 2026-09-09
-
-**Keshav**
-
 - **Flaw Audit Resolution — Sections 10, 11, and 12 (Deployment, Tooling & Quality):**
   - **Section 10 (Docker, Deployment & Network):**
     - Corrected `TURBOSH_BACKEND` default documentation in `PLAYBOOK.md` to `http://localhost:9092` to resolve port collision with Prometheus (`:9090`).

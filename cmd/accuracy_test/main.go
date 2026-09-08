@@ -89,8 +89,11 @@ func runDDoSAttack() []RequestResult {
 	blocked := 0
 	throttled := 0
 	queueFull := 0
+	failed := 0
 	for _, r := range results {
-		if r.StatusCode == 403 {
+		if r.Err != nil {
+			failed++
+		} else if r.StatusCode == 403 {
 			blocked++
 		} else if r.StatusCode == 429 {
 			throttled++
@@ -98,8 +101,8 @@ func runDDoSAttack() []RequestResult {
 			queueFull++
 		}
 	}
-	fmt.Printf("  Sent: 200 | Blocked (403): %d | Throttled (429): %d | Queue Full (503): %d | Allowed: %d\n",
-		blocked, throttled, queueFull, 200-blocked-throttled-queueFull)
+	fmt.Printf("  Sent: 200 | Blocked (403): %d | Throttled (429): %d | Queue Full (503): %d | Failed: %d | Allowed: %d\n",
+		blocked, throttled, queueFull, failed, 200-blocked-throttled-queueFull-failed)
 
 	return results
 }
