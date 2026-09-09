@@ -381,7 +381,7 @@ func sortFloat64s(a []float64) {
 
 // getCounterValue reads the current value of a Prometheus counter.
 // Returns 0 if the counter is nil.
-func getCounterValue(c interface{ Inc() }) int64 {
+func getCounterValue(_ interface{ Inc() }) int64 {
 	// We can't directly read a Prometheus counter value without reflection
 	// or the testutil package. Instead, we'll track our own atomic counters
 	// alongside the Prometheus ones. For now, return 0 and use the

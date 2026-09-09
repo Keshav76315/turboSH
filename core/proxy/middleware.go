@@ -220,7 +220,8 @@ func SetupMiddleware(router *gin.Engine, components *Components) {
 			status := c.Writer.Status()
 			ds.RecordRequest(status, latencyMs)
 
-			if status == http.StatusTooManyRequests {
+			switch status {
+			case http.StatusTooManyRequests:
 				ipHash := c.GetString(logging.ContextKeyClientIPHash)
 				if ipHash == "" {
 					ipHash = c.ClientIP()
@@ -237,7 +238,7 @@ func SetupMiddleware(router *gin.Engine, components *Components) {
 					Detail:    "Rate limit exceeded (token bucket / burst)",
 					Status:    status,
 				})
-			} else if status == http.StatusForbidden {
+			case http.StatusForbidden:
 				ipHash := c.GetString(logging.ContextKeyClientIPHash)
 				if ipHash == "" {
 					ipHash = c.ClientIP()
