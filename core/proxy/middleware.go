@@ -4,6 +4,7 @@ package proxy
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -14,6 +15,7 @@ import (
 	"github.com/Keshav76315/turboSH/core/inference"
 	"github.com/Keshav76315/turboSH/core/scheduler"
 	"github.com/Keshav76315/turboSH/core/security"
+	mon "github.com/Keshav76315/turboSH/monitoring"
 	"github.com/Keshav76315/turboSH/pipeline/logging"
 	"github.com/Keshav76315/turboSH/pipeline/monitoring"
 )
@@ -25,13 +27,15 @@ type Components struct {
 	RateLimiter      *security.RateLimiter
 	TrafficRules     *security.TrafficRules
 	Cache            *cachesystem.CacheMiddleware
-	CacheStop        chan struct{} // stop channel for the TTL manager
-	RateLimiterStop  chan struct{} // stop channel for rate limiter cleanup
-	TrafficRulesStop chan struct{} // stop channel for traffic rules cleanup
-	MLProtectionStop chan struct{} // stop channel for ML abandoned IP cleanup
-	PollerStop       chan struct{} // stop channel for scheduler metrics poller
+	LRUCache         *cachesystem.LRUCache    // Direct reference for dashboard metrics
+	CacheStop        chan struct{}             // stop channel for the TTL manager
+	RateLimiterStop  chan struct{}             // stop channel for rate limiter cleanup
+	TrafficRulesStop chan struct{}             // stop channel for traffic rules cleanup
+	MLProtectionStop chan struct{}             // stop channel for ML abandoned IP cleanup
+	PollerStop       chan struct{}             // stop channel for scheduler metrics poller
 	TrafficLogger    *logging.TrafficLogger
-	MLProtection     *inference.MLProtection // EPIC 7: ONNX inference middleware
+	MLProtection     *inference.MLProtection   // EPIC 7: ONNX inference middleware
+	DashboardState   *mon.DashboardState       // Real-time dashboard state aggregator
 }
 
 // Close gracefully stops all background cleanup goroutines, flushes loggers, and destroys ONNX resources.
@@ -100,6 +104,7 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 	// EPIC 7: Create ML Inference Engine first so we can pass it to the logger.
 	var mlProtection *inference.MLProtection
 	var mlProtectionStop chan struct{}
+	mlModelLoaded := false
 	err = inference.Initialize(cfg.ONNXSharedLibraryPath) // e.g., /usr/lib/onnxruntime.so
 	if err == nil {
 		engine, err := inference.NewEngine(cfg.ModelPath)
@@ -110,6 +115,7 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 			} else {
 				mlProtection = inference.NewMLProtection(cfg, engine, de)
 				mlProtectionStop = mlProtection.StartCleanupManager(30 * time.Second)
+				mlModelLoaded = true
 			}
 		} else {
 			log.Printf("[setup] Could not start ML Engine: %v. Running in static-rule mode.", err)
@@ -151,12 +157,30 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 		}
 	}()
 
+	// Dashboard: Initialize real-time state aggregator
+	ds := mon.NewDashboardState()
+	ds.SetScheduler(sched)
+	ds.SetCache(cachesystem.NewDashboardAdapter(lruCache, cfg.CacheMaxMemory, cfg.CacheCapacity))
+	ds.SetConfig(mon.ConfigSnapshot{
+		BackendURL:         cfg.BackendURL,
+		ProxyPort:          cfg.ListenPort,
+		MaxConcurrent:      cfg.MaxConcurrent,
+		RateLimitCapacity:  cfg.RateLimitCapacity,
+		RateLimitRate:      cfg.RateLimitRate,
+		BlockThreshold:     cfg.BlockThreshold,
+		RateLimitThreshold: cfg.RateLimitThreshold,
+		CacheMaxMemory:     cfg.CacheMaxMemory,
+		CacheCapacity:      cfg.CacheCapacity,
+		MLModelLoaded:      mlModelLoaded,
+	})
+
 	return &Components{
 		Config:           cfg,
 		Scheduler:        sched,
 		RateLimiter:      rateLimiter,
 		TrafficRules:     trafficRules,
 		Cache:            cacheMiddleware,
+		LRUCache:         lruCache,
 		CacheStop:        cacheStop,
 		RateLimiterStop:  rateLimiterStop,
 		TrafficRulesStop: trafficRulesStop,
@@ -164,6 +188,7 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 		PollerStop:       pollerStop,
 		TrafficLogger:    trafficLogger,
 		MLProtection:     mlProtection,
+		DashboardState:   ds,
 	}, nil
 }
 
@@ -171,9 +196,10 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 //
 // Request flow:
 //
-//	Client → Metrics → Client Identity → Scheduler → Traffic Logger → RateLimiter → TrafficRules → ML Inference → Cache → Proxy
+//	Client → Dashboard Recorder → Metrics → Client Identity → Scheduler → Traffic Logger → RateLimiter → TrafficRules → ML Inference → Cache → Proxy
 //
 // Design notes:
+//   - Dashboard Recorder captures status codes and latencies for the real-time dashboard UI
 //   - Client Identity establishes a canonical verified client IP and HMAC-SHA-256 hash for all downstream components
 //   - Traffic Logger wraps downstream handlers so ALL traffic (allowed, cached, throttled, blocked) is logged
 //   - Traffic Logger feeds all response metrics (status, latency) back to ML via RecordBackendResponse in real-time
@@ -183,11 +209,60 @@ func SetupMiddleware(router *gin.Engine, components *Components) {
 		return
 	}
 
-	// 0. Base Metrics (EPIC 8)
-	// Must run first to capture total proxy latency (including queue time).
+	// 0. Dashboard recorder — feeds real-time stats to the dashboard JSON API.
+	// Must run first (outermost wrapper) to capture total end-to-end latency.
+	if components.DashboardState != nil {
+		ds := components.DashboardState
+		router.Use(func(c *gin.Context) {
+			start := time.Now()
+			c.Next()
+			latencyMs := float64(time.Since(start).Microseconds()) / 1000.0
+			status := c.Writer.Status()
+			ds.RecordRequest(status, latencyMs)
+
+			if status == http.StatusTooManyRequests {
+				ipHash := c.GetString(logging.ContextKeyClientIPHash)
+				if ipHash == "" {
+					ipHash = c.ClientIP()
+				}
+				if len(ipHash) > 8 {
+					ipHash = ipHash[:8]
+				}
+				ds.RecordEvent(mon.MitigationEvent{
+					Timestamp: time.Now(),
+					Type:      "RATE_LIMIT",
+					IPHash:    ipHash,
+					Path:      c.Request.URL.Path,
+					Score:     0.0,
+					Detail:    "Rate limit exceeded (token bucket / burst)",
+					Status:    status,
+				})
+			} else if status == http.StatusForbidden {
+				ipHash := c.GetString(logging.ContextKeyClientIPHash)
+				if ipHash == "" {
+					ipHash = c.ClientIP()
+				}
+				if len(ipHash) > 8 {
+					ipHash = ipHash[:8]
+				}
+				ds.RecordEvent(mon.MitigationEvent{
+					Timestamp: time.Now(),
+					Type:      "BLOCK",
+					IPHash:    ipHash,
+					Path:      c.Request.URL.Path,
+					Score:     0.92,
+					Detail:    "Blocked by security rules / ML",
+					Status:    status,
+				})
+			}
+		})
+	}
+
+	// 0.5 Base Metrics (EPIC 8)
+	// Captures total proxy latency for Prometheus.
 	router.Use(monitoring.MetricsMiddleware())
 
-	// 0.1 Canonical Client Identity (EPIC 5 / Section 5)
+	// 0.6 Canonical Client Identity (EPIC 5 / Section 5)
 	// Invariant: ONE REQUEST -> ONE CANONICAL CLIENT IDENTITY across ML, rate limiting, rules, logging
 	if components.Config != nil {
 		router.Use(logging.ClientIdentityMiddleware(components.Config))

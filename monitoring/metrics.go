@@ -35,8 +35,17 @@ func RecordRequest(method string, statusCode int, duration time.Duration) {
 	RequestLatency.WithLabelValues(method).Observe(float64(duration.Microseconds()) / 1000.0)
 }
 
-func RecordMLBlock()    { MLBlocksTotal.Inc() }
-func RecordMLThrottle() { MLThrottlesTotal.Inc() }
-func RecordMLAllow()    { MLAllowsTotal.Inc() }
-func RecordCacheHit()   { CacheHitsTotal.Inc() }
-func RecordCacheMiss()  { CacheMissesTotal.Inc() }
+func RecordMLBlock() {
+	MLBlocksTotal.Inc()
+	DashboardBlocks.Add(1)
+}
+func RecordMLThrottle() {
+	MLThrottlesTotal.Inc()
+	DashboardThrottles.Add(1)
+}
+func RecordMLAllow() {
+	MLAllowsTotal.Inc()
+	DashboardAllows.Add(1)
+}
+func RecordCacheHit()  { CacheHitsTotal.Inc() }
+func RecordCacheMiss() { CacheMissesTotal.Inc() }

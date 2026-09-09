@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-
-<html class="dark h-full bg-[#0a0e17]" lang="en"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>GopherML Monitor - Enterprise Network Telemetry</title>
-<!-- Tailwind CSS v3 with Plugins -->
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<!-- Custom Tailwind Configuration -->
-<script>
+<html class="dark h-full bg-[#0a0e17]" lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>turboSH — AI Middleware & Traffic Shield</title>
+  <!-- Tailwind CSS v3 with Plugins -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <!-- Custom Tailwind Configuration -->
+  <script>
     tailwind.config = {
       darkMode: 'class',
       theme: {
@@ -29,7 +29,7 @@
       }
     }
   </script>
-<style data-purpose="scrollbar-styling">
+  <style data-purpose="scrollbar-styling">
     ::-webkit-scrollbar {
       width: 5px;
       height: 5px;
@@ -47,455 +47,861 @@
   </style>
 </head>
 <body class="h-full text-slate-300 font-sans antialiased overflow-hidden flex flex-col bg-[#090d15]">
-<!-- BEGIN: MainHeader -->
-<header class="h-14 border-b border-[#1b2336] bg-[#0c111c] px-6 flex items-center justify-between shrink-0 z-30" data-purpose="desktop-navbar">
-<!-- Brand and Cluster Selector -->
-<div class="flex items-center space-x-6">
-<div class="flex items-center space-x-3 cursor-pointer">
-<div class="w-7 h-7 rounded border border-[#06b6d4]/40 bg-[#06b6d4]/10 flex items-center justify-center text-[#06b6d4]">
-<!-- Gopher/Network Node Icon -->
-<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
-<circle cx="12" cy="12" fill="currentColor" r="2.5"></circle>
-<path d="M12 3a9 9 0 0 0-9 9m18 0a9 9 0 0 0-9-9m0 18a9 9 0 0 1-9-9m18 0a9 9 0 0 1-9 9" stroke-linecap="round"></path>
-<circle cx="4" cy="12" r="1.5"></circle>
-<circle cx="20" cy="12" r="1.5"></circle>
-<circle cx="12" cy="4" r="1.5"></circle>
-</svg>
-</div>
-<div class="flex items-baseline space-x-2">
-<span class="font-bold text-base tracking-tight text-slate-100 font-mono">GopherML</span>
-<span class="text-[11px] uppercase tracking-widest text-slate-500 font-mono">Monitor</span>
-</div>
-</div>
-<div class="h-4 w-px bg-[#1b2336]"></div>
-<!-- Cluster Selector Tabs -->
-<nav class="flex items-center space-x-1 font-mono text-xs" data-purpose="cluster-tabs">
-<button class="px-2.5 py-1 rounded bg-[#06b6d4]/10 border border-[#06b6d4]/40 text-[#06b6d4] flex items-center space-x-1.5 transition">
-<span class="w-1.5 h-1.5 rounded-full bg-[#06b6d4]"></span>
-<span class="font-medium">us-east-cluster</span>
-</button>
-<button class="px-2.5 py-1 rounded bg-[#0f1523] border border-[#1b2336] text-slate-400 hover:text-slate-200 hover:border-slate-700 transition">
-          eu-central-edge
+  <!-- BEGIN: MainHeader -->
+  <header class="h-14 border-b border-[#1b2336] bg-[#0c111c] px-6 flex items-center justify-between shrink-0 z-30" data-purpose="desktop-navbar">
+    <!-- Brand and Route/Instance Selector -->
+    <div class="flex items-center space-x-6">
+      <div class="flex items-center space-x-3 cursor-pointer">
+        <div class="w-8 h-8 rounded-lg border border-[#06b6d4]/40 bg-[#06b6d4]/10 flex items-center justify-center text-[#06b6d4] shadow-[0_0_12px_rgba(6,182,212,0.25)]">
+          <!-- turboSH Shield / Reverse Proxy Gateway Icon -->
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"></path>
+          </svg>
+        </div>
+        <div class="flex items-baseline space-x-2">
+          <span class="font-bold text-base tracking-tight text-slate-100 font-mono">turboSH</span>
+          <span class="text-[10px] uppercase tracking-widest text-[#06b6d4] bg-[#06b6d4]/10 border border-[#06b6d4]/30 px-1.5 py-0.5 rounded font-mono">AI MIDDLEWARE</span>
+        </div>
+      </div>
+      <div class="h-4 w-px bg-[#1b2336]"></div>
+      <!-- Instance / Target Selector Tabs -->
+      <nav class="flex items-center space-x-1 font-mono text-xs" data-purpose="instance-tabs">
+        <button class="px-2.5 py-1 rounded bg-[#06b6d4]/10 border border-[#06b6d4]/40 text-[#06b6d4] flex items-center space-x-1.5 transition">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#06b6d4] animate-pulse"></span>
+          <span class="font-medium">Proxy :8080</span>
         </button>
-<button class="px-2.5 py-1 rounded bg-[#0f1523] border border-[#1b2336] text-slate-400 hover:text-slate-200 hover:border-slate-700 transition">
-          sg-node
+        <button class="px-2.5 py-1 rounded bg-[#0f1523] border border-[#1b2336] text-slate-400 hover:text-slate-200 hover:border-slate-700 transition" title="Upstream Target Service">
+          Upstream :9092
         </button>
-</nav>
-</div>
-<!-- Engine Status & Diagnostics Header Info -->
-<div class="flex items-center space-x-4">
-<!-- Engine Active Status Pill -->
-<div class="flex items-center space-x-2 px-2.5 py-1 bg-[#0f1523] border border-[#1b2336] rounded font-mono text-xs">
-<span class="w-1.5 h-1.5 rounded-full bg-[#06b6d4]"></span>
-<span class="text-slate-300 font-medium">Engine Active</span>
-<span class="text-slate-600">•</span>
-<span class="text-slate-400">Go 1.22.4</span>
-<span class="ml-1 px-1 py-0.5 rounded text-[10px] font-medium bg-[#06b6d4]/10 text-[#06b6d4] border border-[#06b6d4]/20 uppercase">LIVE</span>
-</div>
-<!-- Time Window Dropdown -->
-<div class="hidden xl:flex items-center space-x-1.5 text-xs font-mono text-slate-400 bg-[#0f1523] border border-[#1b2336] px-2.5 py-1 rounded">
-<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
-<path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-</svg>
-<span>Window:</span>
-<span class="text-slate-200 font-medium">T-15m to Now</span>
-</div>
-<!-- Telemetry Connection Icon -->
-<div class="flex items-center justify-center w-7 h-7 rounded bg-[#0f1523] text-slate-400 border border-[#1b2336]" title="Telemetry Feed Connected">
-<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
-<path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9m14.2 0c3.9 3.9 3.9 10.3 0 14.2M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5m8.4 0c2.3 2.3 2.3 6.1 0 8.5M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"></path>
-</svg>
-</div>
-</div>
-</header>
-<!-- END: MainHeader -->
-<!-- App Body: Sidebar + Main Content -->
-<div class="flex flex-1 overflow-hidden">
-<!-- BEGIN: LeftNavigationRail -->
-<aside class="w-52 bg-[#0c111c] border-r border-[#1b2336] flex flex-col justify-between shrink-0 p-3" data-purpose="app-sidebar">
-<div class="space-y-1">
-<p class="px-2.5 py-2 text-[10px] font-mono uppercase tracking-wider text-slate-500 font-semibold">Navigation</p>
-<!-- Nav item: Overview (Active) -->
-<a class="flex items-center space-x-2.5 px-2.5 py-2 rounded bg-[#06b6d4]/10 border border-[#06b6d4]/30 text-[#06b6d4] font-mono text-xs font-medium transition" href="#">
-<svg class="w-4 h-4 text-[#06b6d4]" fill="none" stroke="currentColor" viewbox="0 0 24 24">
-<path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-</svg>
-<span>Overview</span>
-</a>
-<!-- Nav item: Nodes -->
-<a class="flex items-center space-x-2.5 px-2.5 py-2 rounded text-slate-400 hover:text-slate-200 hover:bg-[#111726] font-mono text-xs font-medium transition" href="#">
-<svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
-<path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-</svg>
-<span>Nodes</span>
-</a>
-<!-- Nav item: Alerts -->
-<a class="flex items-center justify-between px-2.5 py-2 rounded text-slate-400 hover:text-slate-200 hover:bg-[#111726] font-mono text-xs font-medium transition" href="#">
-<div class="flex items-center space-x-2.5">
-<svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
-<path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-</svg>
-<span>Alerts</span>
-</div>
-<span class="px-1.5 py-0.2 rounded text-[10px] bg-[#1a2235] text-slate-300 font-mono border border-[#243048]">3</span>
-</a>
-<!-- Nav item: Settings -->
-<a class="flex items-center space-x-2.5 px-2.5 py-2 rounded text-slate-400 hover:text-slate-200 hover:bg-[#111726] font-mono text-xs font-medium transition" href="#">
-<svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewbox="0 0 24 24">
-<path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-</svg>
-<span>Settings</span>
-</a>
-</div>
-<!-- Quick Runtime Diagnostic Mini-Card -->
-<div class="p-3 bg-[#0f1523] border border-[#1b2336] rounded font-mono text-[11px] space-y-1.5">
-<div class="flex items-center justify-between text-slate-400">
-<span>PIPELINE</span>
-<span class="text-slate-200 font-semibold">HEALTHY</span>
-</div>
-<div class="w-full bg-[#1b2336] h-1 rounded overflow-hidden">
-<div class="bg-[#06b6d4] h-full w-[88%]"></div>
-</div>
-<p class="text-[10px] text-slate-500">Sync jitter: 0.04ms</p>
-</div>
-</aside>
-<!-- END: LeftNavigationRail -->
-<!-- BEGIN: MainContentScrollableArea -->
-<main class="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-5 space-y-4 bg-[#090d15]" data-purpose="dashboard-viewport">
-<!-- BEGIN: RuntimeTelemetryStrip -->
-<section class="bg-[#0f1523] border border-[#1b2336] rounded p-3" data-purpose="runtime-telemetry-banner">
-<div class="flex flex-wrap items-center justify-between gap-4">
-<!-- Section Title & Drop Rate Status -->
-<div class="flex items-center space-x-3">
-<div class="p-1 rounded bg-[#06b6d4]/10 text-[#06b6d4] border border-[#06b6d4]/30">
-<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
-<path d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7C5 4 4 5 4 7zm0 4h16M9 4v3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-</svg>
-</div>
-<div>
-<div class="text-[10px] uppercase font-mono tracking-widest text-slate-400">RUNTIME TELEMETRY</div>
-<div class="text-xs font-mono text-slate-300 flex items-center space-x-1.5">
-<span class="w-1.5 h-1.5 rounded-full bg-[#06b6d4]"></span>
-<span>0.02% DROP</span>
-</div>
-</div>
-</div>
-<!-- Divider -->
-<div class="hidden sm:block h-6 w-px bg-[#1b2336]"></div>
-<!-- Goroutines Stat -->
-<div class="flex flex-col">
-<span class="text-[10px] font-mono uppercase tracking-wider text-slate-500">GOROUTINES</span>
-<div class="flex items-baseline space-x-2 font-mono">
-<span class="text-base font-bold text-slate-100">1,482</span>
-<span class="text-xs text-slate-400">+18/s</span>
-</div>
-</div>
-<!-- Divider -->
-<div class="hidden sm:block h-6 w-px bg-[#1b2336]"></div>
-<!-- RSS Memory Stat -->
-<div class="flex flex-col">
-<span class="text-[10px] font-mono uppercase tracking-wider text-slate-500">RSS MEMORY</span>
-<div class="flex items-baseline space-x-2 font-mono">
-<span class="text-base font-bold text-slate-100">84.2 <span class="text-xs font-normal text-slate-400">MB</span></span>
-<span class="text-xs text-slate-500">gc: 1.1ms</span>
-</div>
-</div>
-<!-- Divider -->
-<div class="hidden sm:block h-6 w-px bg-[#1b2336]"></div>
-<!-- ML Model Stat -->
-<div class="flex flex-col">
-<span class="text-[10px] font-mono uppercase tracking-wider text-slate-500">ML MODEL</span>
-<div class="flex items-baseline space-x-2 font-mono">
-<span class="text-xs font-semibold text-slate-200">iso-forest-v3</span>
-<span class="text-xs text-slate-500">batch: 64pk</span>
-</div>
-</div>
-<!-- Right side: Engine Live indicator badge -->
-<div class="hidden lg:flex items-center space-x-2 bg-[#141b2d] border border-[#1b2336] px-2.5 py-1 rounded">
-<span class="w-1.5 h-1.5 rounded-full bg-[#06b6d4]"></span>
-<span class="text-xs font-mono text-slate-300">Inference Loop Sync</span>
-</div>
-</div>
-</section>
-<!-- END: RuntimeTelemetryStrip -->
-<!-- BEGIN: KpiMetricsCardsGrid -->
-<section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4" data-purpose="kpi-metrics-row">
-<!-- KPI 1: Anomaly Score -->
-<article class="bg-[#0f1523] border border-[#1b2336] rounded p-4 flex flex-col justify-between hover:border-slate-700 transition" data-purpose="metric-anomaly-score">
-<div class="flex items-center justify-between mb-2">
-<span class="text-xs font-mono uppercase tracking-wider text-slate-400 font-medium">ANOMALY SCORE</span>
-<span class="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-[#141b2d] text-slate-300 border border-[#243048] uppercase tracking-wide">NOMINAL</span>
-</div>
-<div class="my-2 flex items-baseline space-x-1 font-mono">
-<span class="text-3xl font-bold text-slate-100 tracking-tight">0.14</span>
-<span class="text-slate-500 text-base">/ 1.0</span>
-</div>
-<!-- Segmented status bars -->
-<div class="pt-2">
-<div class="flex space-x-1.5">
-<div class="h-1.5 flex-1 rounded-none bg-[#06b6d4]"></div>
-<div class="h-1.5 flex-1 rounded-none bg-[#06b6d4]"></div>
-<div class="h-1.5 flex-1 rounded-none bg-[#1b2336]"></div>
-<div class="h-1.5 flex-1 rounded-none bg-[#1b2336]"></div>
-<div class="h-1.5 flex-1 rounded-none bg-[#1b2336]"></div>
-<div class="h-1.5 flex-1 rounded-none bg-[#1b2336]"></div>
-</div>
-<div class="flex justify-between text-[10px] font-mono text-slate-500 mt-1.5">
-<span>0.00</span>
-<span>Threshold 0.85</span>
-</div>
-</div>
-</article>
-<!-- KPI 2: Ingest Rate -->
-<article class="bg-[#0f1523] border border-[#1b2336] rounded p-4 flex flex-col justify-between hover:border-slate-700 transition" data-purpose="metric-ingest-rate">
-<div class="flex items-center justify-between mb-2">
-<span class="text-xs font-mono uppercase tracking-wider text-slate-400 font-medium">INGEST RATE</span>
-<svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
-<path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-</svg>
-</div>
-<div class="my-2 flex items-baseline space-x-1.5 font-mono">
-<span class="text-3xl font-bold text-[#06b6d4] tracking-tight">428.6</span>
-<span class="text-slate-400 text-sm">MB/s</span>
-</div>
-<div class="pt-2 font-mono">
-<div class="flex justify-between text-xs text-slate-400 mb-1.5">
-<span>Chan Buffer</span>
-<span class="text-slate-300 font-medium">12%</span>
-</div>
-<div class="w-full bg-[#1b2336] h-1.5 rounded-none overflow-hidden">
-<div class="bg-[#06b6d4] h-full w-[12%]"></div>
-</div>
-</div>
-</article>
-<!-- KPI 3: p99 Latency -->
-<article class="bg-[#0f1523] border border-[#1b2336] rounded p-4 flex flex-col justify-between hover:border-slate-700 transition" data-purpose="metric-p99-latency">
-<div class="flex items-center justify-between mb-2">
-<span class="text-xs font-mono uppercase tracking-wider text-slate-400 font-medium">P99 LATENCY</span>
-<span class="px-2 py-0.5 rounded text-[10px] font-mono text-slate-400 bg-[#141b2d] border border-[#243048]">µs SYNC</span>
-</div>
-<div class="my-2 flex items-baseline space-x-1.5 font-mono">
-<span class="text-3xl font-bold text-slate-100 tracking-tight">1.42</span>
-<span class="text-slate-400 text-sm">ms</span>
-</div>
-<div class="pt-2 font-mono flex items-center text-xs text-slate-400 space-x-1">
-<svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
-<path d="M19 14l-7 7m0 0l-7-7m7 7V3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-</svg>
-<span>-0.18ms vs avg</span>
-</div>
-</article>
-<!-- KPI 4: Anomalies -->
-<article class="bg-[#0f1523] border border-[#1b2336] rounded p-4 flex flex-col justify-between hover:border-slate-700 transition" data-purpose="metric-anomalies">
-<div class="flex items-center justify-between mb-2">
-<span class="text-xs font-mono uppercase tracking-wider text-slate-400 font-medium">ANOMALIES</span>
-<span class="w-2 h-2 rounded-full bg-slate-400"></span>
-</div>
-<div class="my-2 flex items-baseline space-x-2 font-mono">
-<span class="text-3xl font-bold text-slate-100 tracking-tight">2</span>
-<span class="text-slate-400 text-sm font-medium">flagged</span>
-</div>
-<div class="pt-2 font-mono text-xs text-slate-400 flex items-center space-x-2">
-<span class="text-slate-300 font-medium">1 warn</span>
-<span class="text-slate-600">•</span>
-<span class="text-slate-300 font-medium">1 mitigated</span>
-</div>
-</article>
-</section>
-<!-- END: KpiMetricsCardsGrid -->
-<!-- BEGIN: MainAnalyticsAndEventsGrid -->
-<section class="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 items-start" data-purpose="chart-and-events-container">
-<!-- Column 1 (8 Cols): Main Waveform / Threshold Chart -->
-<div class="lg:col-span-8 bg-[#0f1523] border border-[#1b2336] rounded p-5 flex flex-col justify-between h-full min-h-[440px] relative" data-purpose="packet-ingress-graph-card">
-<!-- Chart Header -->
-<div class="flex items-start justify-between mb-3">
-<div>
-<h2 class="text-sm font-semibold text-slate-100 tracking-tight">Packet Ingress vs ML Threshold</h2>
-<p class="text-xs text-slate-400 font-mono mt-0.5">Real-time isolation score per flow chunk</p>
-</div>
-<div class="flex items-center space-x-2">
-<span class="px-2 py-0.5 font-mono text-[10px] rounded bg-[#141b2d] text-slate-300 border border-[#243048]">60 FPS</span>
-</div>
-</div>
-<!-- Chart Visual Area (SVG Waveform with Threshold & Single Accent) -->
-<div class="relative flex-1 w-full bg-[#0b0f19] border border-[#1b2336] rounded p-4 flex flex-col justify-between overflow-hidden">
-<!-- Threshold & Sigma Metric overlay -->
-<div class="absolute top-4 left-4 right-4 flex items-center justify-between z-10 pointer-events-none font-mono text-xs">
-<div class="flex items-center space-x-2 text-slate-400 font-medium tracking-wide">
-<span class="w-2 h-0.5 bg-slate-400 inline-block"></span>
-<span>CRITICAL MODEL THRESHOLD (0.85)</span>
-</div>
-<div class="px-2 py-0.5 rounded bg-[#141b2d] border border-[#243048] text-slate-400 text-[10px]">
-                σ=3.2
+        <button class="px-2.5 py-1 rounded bg-[#0f1523] border border-[#1b2336] text-slate-400 hover:text-slate-200 hover:border-slate-700 transition" title="Prometheus Metrics Listener">
+          Metrics :9090
+        </button>
+      </nav>
+    </div>
+    <!-- Engine Status & Diagnostics Header Info -->
+    <div class="flex items-center space-x-4">
+      <!-- Upstream Health Pill -->
+      <div class="hidden md:flex items-center space-x-2 px-2.5 py-1 bg-[#0f1523] border border-[#1b2336] rounded font-mono text-xs">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+        <span class="text-slate-400">Backend:</span>
+        <span class="text-slate-200 font-medium">localhost:9092</span>
+      </div>
+      <!-- Engine Active Status Pill -->
+      <div class="flex items-center space-x-2 px-2.5 py-1 bg-[#0f1523] border border-[#1b2336] rounded font-mono text-xs">
+        <span class="w-1.5 h-1.5 rounded-full bg-[#06b6d4]"></span>
+        <span class="text-slate-300 font-medium">Engine Active</span>
+        <span class="text-slate-600">•</span>
+        <span class="text-slate-400">Go 1.24+</span>
+        <span class="ml-1 px-1 py-0.5 rounded text-[10px] font-medium bg-[#06b6d4]/10 text-[#06b6d4] border border-[#06b6d4]/20 uppercase">LIVE</span>
+      </div>
+      <!-- Time Window Dropdown -->
+      <div class="hidden xl:flex items-center space-x-1.5 text-xs font-mono text-slate-400 bg-[#0f1523] border border-[#1b2336] px-2.5 py-1 rounded">
+        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+        </svg>
+        <span>Window:</span>
+        <span class="text-slate-200 font-medium">T-15m to Now</span>
+      </div>
+      <!-- Telemetry Connection Icon -->
+      <div class="flex items-center justify-center w-7 h-7 rounded bg-[#0f1523] text-slate-400 border border-[#1b2336]" title="Prometheus / Metrics Feed Connected">
+        <svg class="w-3.5 h-3.5 text-[#06b6d4]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9m14.2 0c3.9 3.9 3.9 10.3 0 14.2M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5m8.4 0c2.3 2.3 2.3 6.1 0 8.5M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"></path>
+        </svg>
+      </div>
+    </div>
+  </header>
+  <!-- END: MainHeader -->
+
+  <!-- App Body: Sidebar + Main Content -->
+  <div class="flex flex-1 overflow-hidden">
+    <!-- BEGIN: LeftNavigationRail -->
+    <aside class="w-56 bg-[#0c111c] border-r border-[#1b2336] flex flex-col justify-between shrink-0 p-3" data-purpose="app-sidebar">
+      <div class="space-y-1">
+        <p class="px-2.5 py-2 text-[10px] font-mono uppercase tracking-wider text-slate-500 font-semibold">Middleware Navigation</p>
+        <!-- Nav item: Overview (Active) -->
+        <a class="flex items-center space-x-2.5 px-2.5 py-2 rounded bg-[#06b6d4]/10 border border-[#06b6d4]/30 text-[#06b6d4] font-mono text-xs font-medium transition" href="#">
+          <svg class="w-4 h-4 text-[#06b6d4]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+          </svg>
+          <span>Overview</span>
+        </a>
+        <!-- Nav item: Traffic & Proxy -->
+        <a class="flex items-center space-x-2.5 px-2.5 py-2 rounded text-slate-400 hover:text-slate-200 hover:bg-[#111726] font-mono text-xs font-medium transition" href="#">
+          <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+          </svg>
+          <span>Traffic & Proxy</span>
+        </a>
+        <!-- Nav item: Cache System -->
+        <a class="flex items-center space-x-2.5 px-2.5 py-2 rounded text-slate-400 hover:text-slate-200 hover:bg-[#111726] font-mono text-xs font-medium transition" href="#">
+          <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7C5 4 4 5 4 7zm0 4h16M9 4v3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+          </svg>
+          <span>Cache System</span>
+        </a>
+        <!-- Nav item: ML & Anomaly -->
+        <a class="flex items-center space-x-2.5 px-2.5 py-2 rounded text-slate-400 hover:text-slate-200 hover:bg-[#111726] font-mono text-xs font-medium transition" href="#">
+          <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+          </svg>
+          <span>ML & Decisions</span>
+        </a>
+        <!-- Nav item: Threat Log -->
+        <a class="flex items-center justify-between px-2.5 py-2 rounded text-slate-400 hover:text-slate-200 hover:bg-[#111726] font-mono text-xs font-medium transition" href="#">
+          <div class="flex items-center space-x-2.5">
+            <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+            </svg>
+            <span>Threat Log</span>
+          </div>
+          <span class="px-1.5 py-0.2 rounded text-[10px] bg-red-950/60 text-red-400 font-mono border border-red-800/50">3 Active</span>
+        </a>
+        <!-- Nav item: Configuration -->
+        <a class="flex items-center space-x-2.5 px-2.5 py-2 rounded text-slate-400 hover:text-slate-200 hover:bg-[#111726] font-mono text-xs font-medium transition" href="#">
+          <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+          </svg>
+          <span>Configuration</span>
+        </a>
+      </div>
+      <!-- Quick Runtime Diagnostic Mini-Card -->
+      <div class="p-3 bg-[#0f1523] border border-[#1b2336] rounded font-mono text-[11px] space-y-2">
+        <div class="flex items-center justify-between text-slate-400">
+          <span class="text-[10px] tracking-wider uppercase text-slate-500">SCHEDULER LOAD</span>
+          <span class="text-emerald-400 font-semibold">24 / 100 SLOTS</span>
+        </div>
+        <div class="w-full bg-[#1b2336] h-1.5 rounded-full overflow-hidden">
+          <div class="bg-[#06b6d4] h-full w-[24%] rounded-full"></div>
+        </div>
+        <div class="flex justify-between text-[10px] text-slate-500">
+          <span>Queue Waiting: 0</span>
+          <span>Queue Timeout: 2s</span>
+        </div>
+      </div>
+    </aside>
+    <!-- END: LeftNavigationRail -->
+
+    <!-- BEGIN: MainContentScrollableArea -->
+    <main class="flex-1 flex flex-col min-w-0 overflow-y-auto px-6 py-5 space-y-4 bg-[#090d15]" data-purpose="dashboard-viewport">
+      <!-- BEGIN: RuntimeTelemetryStrip -->
+      <section class="bg-[#0f1523] border border-[#1b2336] rounded-lg p-3 shadow-sm" data-purpose="runtime-telemetry-banner">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <!-- Section Title & HTTP Status Health -->
+          <div class="flex items-center space-x-3">
+            <div class="p-1.5 rounded-md bg-[#06b6d4]/10 text-[#06b6d4] border border-[#06b6d4]/30">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+              </svg>
+            </div>
+            <div>
+              <div class="text-[10px] uppercase font-mono tracking-widest text-slate-400">MIDDLEWARE STATUS</div>
+              <div class="text-xs font-mono text-emerald-400 flex items-center space-x-1.5 font-medium">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>99.96% SUCCESS (0.04% Error)</span>
               </div>
-</div>
-<!-- SVG Vector Waveform Graphic (No Gradients, No Glows) -->
-<div class="w-full h-64 md:h-72 my-auto relative">
-<svg class="w-full h-full" fill="none" preserveaspectratio="none" viewbox="0 0 800 280">
-<!-- Background Grid -->
-<defs>
-<pattern height="40" id="plainGrid" patternunits="userSpaceOnUse" width="40">
-<path d="M 40 0 L 0 0 0 40" fill="none" stroke="#141b2d" stroke-width="1"></path>
-</pattern>
-</defs>
-<rect fill="url(#plainGrid)" height="280" width="800"></rect>
-<!-- Critical Threshold Dashed Line at y=80 (0.85 Level) -->
-<line stroke="#475569" stroke-dasharray="4,4" stroke-width="1" x1="0" x2="800" y1="80" y2="80"></line>
-<!-- Baseline Reference Grid Lines -->
-<line stroke="#141b2d" stroke-width="1" x1="0" x2="800" y1="140" y2="140"></line>
-<line stroke="#141b2d" stroke-width="1" x1="0" x2="800" y1="200" y2="200"></line>
-<!-- Solid Thin Waveform Path (Accent Color Only) -->
-<path d="M 20 220 
-                         Q 120 215, 200 200 
+            </div>
+          </div>
+          <!-- Divider -->
+          <div class="hidden sm:block h-6 w-px bg-[#1b2336]"></div>
+          <!-- Request Throughput Stat -->
+          <div class="flex flex-col">
+            <span class="text-[10px] font-mono uppercase tracking-wider text-slate-500">REQUEST THROUGHPUT</span>
+            <div class="flex items-baseline space-x-2 font-mono">
+              <span class="text-base font-bold text-slate-100">1,842 <span class="text-xs font-normal text-slate-400">req/s</span></span>
+              <span class="text-xs text-emerald-400">Peak: 2.4k/s</span>
+            </div>
+          </div>
+          <!-- Divider -->
+          <div class="hidden sm:block h-6 w-px bg-[#1b2336]"></div>
+          <!-- Cache Memory & Evictions Stat -->
+          <div class="flex flex-col">
+            <span class="text-[10px] font-mono uppercase tracking-wider text-slate-500">CACHE LRU MEMORY</span>
+            <div class="flex items-baseline space-x-2 font-mono">
+              <span class="text-base font-bold text-slate-100">38.4 <span class="text-xs font-normal text-slate-400">MB / 100 MB</span></span>
+              <span class="text-xs text-slate-500">Evictions: 0</span>
+            </div>
+          </div>
+          <!-- Divider -->
+          <div class="hidden sm:block h-6 w-px bg-[#1b2336]"></div>
+          <!-- ML Model Stat -->
+          <div class="flex flex-col">
+            <span class="text-[10px] font-mono uppercase tracking-wider text-slate-500">ML INFERENCE ENGINE</span>
+            <div class="flex items-baseline space-x-2 font-mono">
+              <span class="text-xs font-semibold text-slate-200">Isolation Forest (ONNX)</span>
+              <span class="text-xs text-slate-400">~0.38ms</span>
+            </div>
+          </div>
+          <!-- Right side: Decision Policy Indicator -->
+          <div class="hidden lg:flex items-center space-x-2 bg-[#141b2d] border border-[#1b2336] px-2.5 py-1 rounded">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#06b6d4]"></span>
+            <span class="text-xs font-mono text-slate-300">Policy: 0.65 Throttle | 0.85 Block</span>
+          </div>
+        </div>
+      </section>
+      <!-- END: RuntimeTelemetryStrip -->
+
+      <!-- BEGIN: KpiMetricsCardsGrid -->
+      <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4" data-purpose="kpi-metrics-row">
+        <!-- KPI 1: Anomaly Score -->
+        <article class="bg-[#0f1523] border border-[#1b2336] rounded-lg p-4 flex flex-col justify-between hover:border-slate-700 transition" data-purpose="metric-anomaly-score">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-mono uppercase tracking-wider text-slate-400 font-medium">ANOMALY SCORE</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-950/50 text-emerald-400 border border-emerald-800/40 uppercase tracking-wide">NOMINAL (ALLOW)</span>
+          </div>
+          <div class="my-2 flex items-baseline space-x-1 font-mono">
+            <span class="text-3xl font-bold text-slate-100 tracking-tight">0.14</span>
+            <span class="text-slate-500 text-base">/ 1.0</span>
+          </div>
+          <!-- Segmented status bars with 2 Decision Engine tiers -->
+          <div class="pt-2 font-mono text-xs">
+            <div class="flex space-x-1">
+              <div class="h-1.5 flex-1 bg-emerald-500 rounded-sm" title="Normal: < 0.65"></div>
+              <div class="h-1.5 flex-1 bg-emerald-500 rounded-sm"></div>
+              <div class="h-1.5 flex-1 bg-emerald-500 rounded-sm"></div>
+              <div class="h-1.5 flex-1 bg-amber-500/30 rounded-sm" title="Rate-Limit Tier: 0.65 - 0.85"></div>
+              <div class="h-1.5 flex-1 bg-red-500/30 rounded-sm" title="Block Tier: > 0.85"></div>
+            </div>
+            <div class="flex justify-between text-[10px] font-mono text-slate-500 mt-1.5">
+              <span>0.00 (Normal)</span>
+              <span class="text-amber-400">0.65 Throttle</span>
+              <span class="text-red-400">0.85 Block</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- KPI 2: Cache Hit Rate (Replaces Irrelevant Ingest Rate) -->
+        <article class="bg-[#0f1523] border border-[#1b2336] rounded-lg p-4 flex flex-col justify-between hover:border-slate-700 transition" data-purpose="metric-cache-hit-rate">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-mono uppercase tracking-wider text-slate-400 font-medium">CACHE HIT RATE</span>
+            <svg class="w-4 h-4 text-[#06b6d4]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            </svg>
+          </div>
+          <div class="my-2 flex items-baseline space-x-1.5 font-mono">
+            <span class="text-3xl font-bold text-[#06b6d4] tracking-tight">78.4%</span>
+            <span class="text-slate-400 text-sm">Hit Ratio</span>
+          </div>
+          <div class="pt-2 font-mono">
+            <div class="flex justify-between text-xs text-slate-400 mb-1.5">
+              <span>Hits: 14,280</span>
+              <span class="text-slate-400">Misses: 3,920</span>
+            </div>
+            <div class="w-full bg-[#1b2336] h-1.5 rounded-full overflow-hidden">
+              <div class="bg-[#06b6d4] h-full w-[78.4%] rounded-full"></div>
+            </div>
+          </div>
+        </article>
+
+        <!-- KPI 3: p99 Latency & Scheduler -->
+        <article class="bg-[#0f1523] border border-[#1b2336] rounded-lg p-4 flex flex-col justify-between hover:border-slate-700 transition" data-purpose="metric-p99-latency">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-mono uppercase tracking-wider text-slate-400 font-medium">REQUEST LATENCY (p99)</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono text-slate-400 bg-[#141b2d] border border-[#243048]">p50: 0.45ms</span>
+          </div>
+          <div class="my-2 flex items-baseline space-x-1.5 font-mono">
+            <span class="text-3xl font-bold text-slate-100 tracking-tight">1.42</span>
+            <span class="text-slate-400 text-sm">ms</span>
+          </div>
+          <div class="pt-2 font-mono flex items-center justify-between text-xs text-slate-400">
+            <span class="text-emerald-400 flex items-center space-x-1">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path d="M19 14l-7 7m0 0l-7-7m7 7V3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+              </svg>
+              <span>-0.18ms vs avg</span>
+            </span>
+            <span class="text-slate-500">Scheduler: 0 queue wait</span>
+          </div>
+        </article>
+
+        <!-- KPI 4: Threat Mitigation Decisions -->
+        <article class="bg-[#0f1523] border border-[#1b2336] rounded-lg p-4 flex flex-col justify-between hover:border-slate-700 transition" data-purpose="metric-anomalies">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-mono uppercase tracking-wider text-slate-400 font-medium">DECISION ACTIONS</span>
+            <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+          </div>
+          <div class="my-2 flex items-baseline space-x-2 font-mono">
+            <span class="text-3xl font-bold text-slate-100 tracking-tight">42</span>
+            <span class="text-slate-400 text-sm font-medium">Mitigations</span>
+          </div>
+          <div class="pt-2 font-mono text-xs text-slate-400 flex items-center justify-between">
+            <span class="text-red-400 font-medium">12 Blocked (403)</span>
+            <span class="text-slate-600">•</span>
+            <span class="text-amber-400 font-medium">30 Throttled (429)</span>
+          </div>
+        </article>
+      </section>
+      <!-- END: KpiMetricsCardsGrid -->
+
+      <!-- BEGIN: MainAnalyticsAndEventsGrid -->
+      <section class="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 items-start" data-purpose="chart-and-events-container">
+        <!-- Column 1 (8 Cols): Traffic Stream vs Decision Engine Thresholds -->
+        <div class="lg:col-span-8 bg-[#0f1523] border border-[#1b2336] rounded-lg p-5 flex flex-col justify-between h-full min-h-[460px] relative" data-purpose="packet-ingress-graph-card">
+          <!-- Chart Header -->
+          <div class="flex items-start justify-between mb-3">
+            <div>
+              <h2 class="text-sm font-semibold text-slate-100 tracking-tight">HTTP Traffic Ingress & Real-Time Anomaly Score</h2>
+              <p class="text-xs text-slate-400 font-mono mt-0.5">Continuous Isolation Forest prediction vs Decision Engine policy bounds (0.65 / 0.85)</p>
+            </div>
+            <div class="flex items-center space-x-2 font-mono text-[10px]">
+              <span class="px-2 py-0.5 rounded bg-red-950/40 text-red-400 border border-red-800/40">BLOCK &gt; 0.85</span>
+              <span class="px-2 py-0.5 rounded bg-amber-950/40 text-amber-400 border border-amber-800/40">RATE LIMIT &gt; 0.65</span>
+            </div>
+          </div>
+
+          <!-- Chart Visual Area -->
+          <div class="relative flex-1 w-full bg-[#0b0f19] border border-[#1b2336] rounded p-4 flex flex-col justify-between overflow-hidden">
+            <!-- Threshold & Sigma Metric overlay -->
+            <div class="absolute top-3 left-4 right-4 flex items-center justify-between z-10 pointer-events-none font-mono text-xs">
+              <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-1.5 text-red-400 text-[11px]">
+                  <span class="w-2.5 h-0.5 bg-red-500 inline-block"></span>
+                  <span>BLOCK THRESHOLD (0.85)</span>
+                </div>
+                <div class="flex items-center space-x-1.5 text-amber-400 text-[11px]">
+                  <span class="w-2.5 h-0.5 bg-amber-500 inline-block"></span>
+                  <span>THROTTLE THRESHOLD (0.65)</span>
+                </div>
+              </div>
+              <div class="px-2 py-0.5 rounded bg-[#141b2d] border border-[#243048] text-[#06b6d4] text-[10px]">
+                INFERENCE: 0.38ms
+              </div>
+            </div>
+
+            <!-- SVG Vector Waveform Graphic -->
+            <div class="w-full h-64 md:h-72 my-auto relative">
+              <svg class="w-full h-full" fill="none" preserveAspectRatio="none" viewBox="0 0 800 280">
+                <!-- Background Grid -->
+                <defs>
+                  <pattern height="40" id="plainGridDark" patternUnits="userSpaceOnUse" width="40">
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#141b2d" stroke-width="1"></path>
+                  </pattern>
+                  <linearGradient id="scoreGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.2"></stop>
+                    <stop offset="100%" stop-color="#06b6d4" stop-opacity="0.0"></stop>
+                  </linearGradient>
+                </defs>
+                <rect fill="url(#plainGridDark)" height="280" width="800"></rect>
+
+                <!-- Block Threshold Dashed Line at y=60 (0.85 level) -->
+                <line stroke="#ef4444" stroke-dasharray="4,4" stroke-width="1.5" x1="0" x2="800" y1="60" y2="60"></line>
+                <text x="790" y="55" fill="#ef4444" font-size="10" font-family="monospace" text-anchor="end">0.85 BLOCK</text>
+
+                <!-- Rate-Limit Threshold Dashed Line at y=120 (0.65 level) -->
+                <line stroke="#f59e0b" stroke-dasharray="4,4" stroke-width="1.5" x1="0" x2="800" y1="120" y2="120"></line>
+                <text x="790" y="115" fill="#f59e0b" font-size="10" font-family="monospace" text-anchor="end">0.65 THROTTLE</text>
+
+                <!-- Allow / Nominal Baseline Reference Line at y=200 -->
+                <line stroke="#141b2d" stroke-width="1" x1="0" x2="800" y1="200" y2="200"></line>
+                <text x="790" y="195" fill="#64748b" font-size="9" font-family="monospace" text-anchor="end">ALLOW ZONE</text>
+
+                <!-- Area fill below score line -->
+                <path d="M 20 220 
+                         Q 120 215, 200 205 
                          T 340 200 
                          C 400 190, 430 145, 480 150 
-                         C 530 155, 550 250, 600 230 
-                         C 650 210, 670 65, 710 70 
-                         C 730 75, 745 230, 770 260 
-                         L 780 170" fill="none" stroke="#06b6d4" stroke-linecap="round" stroke-width="1.75"></path>
-<!-- Anomaly Peak Indicator Dot -->
-<circle cx="678" cy="118" fill="#090d15" r="3.5" stroke="#06b6d4" stroke-width="1.5"></circle>
-<!-- Current Head Indicator Dot -->
-<circle cx="780" cy="170" fill="#06b6d4" r="3"></circle>
-</svg>
-</div>
-<!-- Timeline X-Axis Labels -->
-<div class="flex justify-between items-center text-[11px] font-mono text-slate-500 pt-2 border-t border-[#1b2336]">
-<span>T-15m</span>
-<span>T-10m</span>
-<span>T-5m</span>
-<span class="text-slate-300 font-medium">Now</span>
-</div>
-</div>
-<!-- Bottom Micro-legend -->
-<div class="flex items-center justify-between pt-3 text-[11px] font-mono text-slate-500">
-<div class="flex items-center space-x-4">
-<span class="flex items-center space-x-1.5">
-<span class="w-3 h-0.5 bg-[#06b6d4] inline-block"></span>
-<span class="text-slate-400">Ingress Flow Isolation Score</span>
-</span>
-<span class="flex items-center space-x-1.5">
-<span class="w-3 h-0.5 bg-slate-500 inline-block"></span>
-<span class="text-slate-400">Critical Bound</span>
-</span>
-</div>
-<span>Sub-second inference window: 250ms</span>
-</div>
-</div>
-<!-- Column 2 (4 Cols): Telemetry Events Panel -->
-<div class="lg:col-span-4 bg-[#0f1523] border border-[#1b2336] rounded p-5 flex flex-col justify-between h-full min-h-[440px]" data-purpose="telemetry-events-feed">
-<div>
-<!-- Feed Header -->
-<div class="flex items-center justify-between pb-3 border-b border-[#1b2336]">
-<div class="flex items-center space-x-2">
-<svg class="w-4 h-4 text-[#06b6d4]" fill="none" stroke="currentColor" viewbox="0 0 24 24">
-<path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-</svg>
-<h2 class="font-mono text-xs font-semibold uppercase tracking-wider text-slate-200">Telemetry Events</h2>
-<span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#141b2d] text-slate-400 border border-[#243048]">3 active</span>
-</div>
-<a class="text-xs font-mono text-[#06b6d4] hover:underline font-medium transition" href="#">VIEW ALL</a>
-</div>
-<!-- Event Cards List -->
-<div class="space-y-2.5 mt-3" data-purpose="event-list">
-<!-- Event 1: SYN Flood -->
-<article class="p-3 bg-[#0b0f19] border border-[#1b2336] rounded font-mono space-y-1 hover:border-slate-700 transition">
-<div class="flex items-center justify-between">
-<div class="flex items-center space-x-2">
-<span class="px-1.5 py-0.2 rounded text-[10px] font-medium bg-[#141b2d] text-slate-300 border border-[#243048]">CRIT</span>
-<h3 class="text-xs font-semibold text-slate-200">SYN Flood Signature</h3>
-</div>
-<span class="text-[10px] text-slate-500">45s ago</span>
-</div>
-<div class="text-[11px] text-slate-400 leading-snug">
-                  DDoS vector candidate • <span class="text-slate-300">eth0</span>
-</div>
-<div class="flex items-center text-[10px] text-slate-400 space-x-1 pt-0.5">
-<svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
-<path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-</svg>
-<span>Auto-rate-limited</span>
-</div>
-</article>
-<!-- Event 2: Port Scan -->
-<article class="p-3 bg-[#0b0f19] border border-[#1b2336] rounded font-mono space-y-1 hover:border-slate-700 transition">
-<div class="flex items-center justify-between">
-<div class="flex items-center space-x-2">
-<span class="px-1.5 py-0.2 rounded text-[10px] font-medium bg-[#141b2d] text-slate-400 border border-[#243048]">LOW</span>
-<h3 class="text-xs font-semibold text-slate-200">Unusual Port Scan Sweep</h3>
-</div>
-<span class="text-[10px] text-slate-500">3m ago</span>
-</div>
-<div class="text-[11px] text-slate-400 leading-snug">
-                  TCP SYN sequence • <span class="text-slate-300">all-interfaces</span>
-</div>
-<div class="flex items-center text-[10px] text-slate-400 space-x-1 pt-0.5">
-<svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
-<path d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-</svg>
-<span>Flagged for review</span>
-</div>
-</article>
-<!-- Event 3: DNS Tunneling -->
-<article class="p-3 bg-[#0b0f19] border border-[#1b2336] rounded font-mono space-y-1 hover:border-slate-700 transition">
-<div class="flex items-center justify-between">
-<div class="flex items-center space-x-2">
-<span class="px-1.5 py-0.2 rounded text-[10px] font-medium bg-[#141b2d] text-slate-300 border border-[#243048]">MED</span>
-<h3 class="text-xs font-semibold text-slate-200">DNS Tunneling Entropy</h3>
-</div>
-<span class="text-[10px] text-slate-500">12m ago</span>
-</div>
-<div class="text-[11px] text-slate-400 leading-snug">
-                  Base32 subdomains encoded • <span class="text-slate-300">wg0</span>
-</div>
-<div class="flex items-center text-[10px] text-slate-400 space-x-1 pt-0.5">
-<svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
-<path d="M14 5l7 7m0 0l-7 7m7-7H3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-</svg>
-<span>Alert dispatched</span>
-</div>
-</article>
-</div>
-</div>
-<!-- Bottom Action Bar / Mitigator Status -->
-<div class="pt-3 mt-3 border-t border-[#1b2336] flex items-center justify-between text-xs font-mono">
-<span class="text-slate-500">eBPF Policy State:</span>
-<span class="text-slate-300 font-medium flex items-center space-x-1.5">
-<span class="w-1.5 h-1.5 rounded-full bg-[#06b6d4] inline-block"></span>
-<span>Active Enforcement</span>
-</span>
-</div>
-</div>
-</section>
-<!-- END: MainAnalyticsAndEventsGrid -->
-<!-- BEGIN: DesktopFooterSummary -->
-<footer class="pt-2 pb-3 text-[11px] font-mono text-slate-500 border-t border-[#1b2336] flex flex-wrap items-center justify-between gap-2" data-purpose="app-footer">
-<div class="flex items-center space-x-3">
-<span>GopherML Network Monitor v2.8.4</span>
-<span>•</span>
-<span>Kernel: Linux 6.8.0-generic</span>
-<span>•</span>
-<span>Arch: amd64</span>
-</div>
-<div class="flex items-center space-x-2">
-<span class="inline-block w-1.5 h-1.5 rounded-full bg-[#06b6d4]"></span>
-<span class="text-slate-400">Worker Node 14/14 Online</span>
-</div>
-</footer>
-<!-- END: DesktopFooterSummary -->
-</main>
-<!-- END: MainContentScrollableArea -->
-</div>
-<!-- Optional script for UI interactions (clustering, tabs) -->
-<script data-purpose="simple-tab-interactivity">
-    // Lightweight interactivity for cluster pills
-    document.querySelectorAll('[data-purpose="cluster-tabs"] button').forEach(button => {
+                         C 530 155, 550 250, 600 225 
+                         C 650 205, 670 45, 710 52 
+                         C 730 60, 745 220, 770 230 
+                         L 780 190 L 780 270 L 20 270 Z" fill="url(#scoreGlow)"></path>
+
+                <!-- Solid Anomaly Score Waveform Path -->
+                <path d="M 20 220 
+                         Q 120 215, 200 205 
+                         T 340 200 
+                         C 400 190, 430 145, 480 150 
+                         C 530 155, 550 250, 600 225 
+                         C 650 205, 670 45, 710 52 
+                         C 730 60, 745 220, 770 230 
+                         L 780 190" fill="none" stroke="#06b6d4" stroke-linecap="round" stroke-width="2"></path>
+
+                <!-- Outlier Spike Indicator (Crossed Block Threshold) -->
+                <circle cx="705" cy="50" fill="#ef4444" r="5" stroke="#090d15" stroke-width="2"></circle>
+                <circle cx="705" cy="50" fill="none" r="9" stroke="#ef4444" stroke-width="1.5" class="animate-ping" style="transform-origin: 705px 50px;"></circle>
+
+                <!-- Nominal Score Indicator Dot -->
+                <circle cx="780" cy="190" fill="#06b6d4" r="3.5"></circle>
+              </svg>
+            </div>
+
+            <!-- Timeline X-Axis Labels -->
+            <div class="flex justify-between items-center text-[11px] font-mono text-slate-500 pt-2 border-t border-[#1b2336]">
+              <span>T-15m</span>
+              <span>T-10m</span>
+              <span>T-5m</span>
+              <span class="text-slate-300 font-medium">Now (Score: 0.14)</span>
+            </div>
+          </div>
+
+          <!-- Bottom Micro-legend -->
+          <div class="flex items-center justify-between pt-3 text-[11px] font-mono text-slate-500">
+            <div class="flex items-center space-x-4">
+              <span class="flex items-center space-x-1.5">
+                <span class="w-3 h-0.5 bg-[#06b6d4] inline-block"></span>
+                <span class="text-slate-300">Feature Vector Outlier Score</span>
+              </span>
+              <span class="flex items-center space-x-1.5">
+                <span class="w-3 h-0.5 bg-amber-500 inline-block"></span>
+                <span class="text-slate-400">Rate-Limit Level (0.65)</span>
+              </span>
+              <span class="flex items-center space-x-1.5">
+                <span class="w-3 h-0.5 bg-red-500 inline-block"></span>
+                <span class="text-slate-400">Block Level (0.85)</span>
+              </span>
+            </div>
+            <span>Sliding window: 10s &amp; 60s counters</span>
+          </div>
+        </div>
+
+        <!-- Column 2 (4 Cols): Security & Anomaly Feed (Replaces raw L4 packet sniffer) -->
+        <div class="lg:col-span-4 bg-[#0f1523] border border-[#1b2336] rounded-lg p-5 flex flex-col justify-between h-full min-h-[460px]" data-purpose="telemetry-events-feed">
+          <div>
+            <!-- Feed Header -->
+            <div class="flex items-center justify-between pb-3 border-b border-[#1b2336]">
+              <div class="flex items-center space-x-2">
+                <svg class="w-4 h-4 text-[#06b6d4]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                </svg>
+                <h2 class="font-mono text-xs font-semibold uppercase tracking-wider text-slate-200">Mitigation &amp; Threat Feed</h2>
+                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#141b2d] text-slate-400 border border-[#243048]">3 active</span>
+              </div>
+              <a class="text-xs font-mono text-[#06b6d4] hover:underline font-medium transition" href="#">VIEW ALL</a>
+            </div>
+
+            <!-- Event Cards List -->
+            <div class="space-y-2.5 mt-3" data-purpose="event-list">
+              <!-- Event 1: Isolation Forest High Anomaly Outlier -->
+              <article class="p-3 bg-[#0b0f19] border border-red-950/80 rounded font-mono space-y-1 hover:border-red-800 transition">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-red-950/80 text-red-400 border border-red-800/60">BLOCK</span>
+                    <h3 class="text-xs font-semibold text-slate-200">ML Outlier (Score: 0.92)</h3>
+                  </div>
+                  <span class="text-[10px] text-slate-500">45s ago</span>
+                </div>
+                <div class="text-[11px] text-slate-400 leading-snug">
+                  High entropy &amp; jitter spike • <span class="text-slate-300">/api/v1/checkout</span>
+                </div>
+                <div class="flex items-center text-[10px] text-red-400 space-x-1 pt-0.5">
+                  <svg class="w-3 h-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
+                  </svg>
+                  <span>IP Auto-Blocked (HTTP 403)</span>
+                </div>
+              </article>
+
+              <!-- Event 2: Rapid Request Burst -->
+              <article class="p-3 bg-[#0b0f19] border border-amber-950/80 rounded font-mono space-y-1 hover:border-amber-800 transition">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-950/80 text-amber-400 border border-amber-800/60">THROTTLE</span>
+                    <h3 class="text-xs font-semibold text-slate-200">Burst Threshold Exceeded</h3>
+                  </div>
+                  <span class="text-[10px] text-slate-500">3m ago</span>
+                </div>
+                <div class="text-[11px] text-slate-400 leading-snug">
+                  68 reqs / 2s (Limit: 50) • <span class="text-slate-300">/auth/login</span>
+                </div>
+                <div class="flex items-center text-[10px] text-amber-400 space-x-1 pt-0.5">
+                  <svg class="w-3 h-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  <span>Token Bucket Rate-Limited (HTTP 429)</span>
+                </div>
+              </article>
+
+              <!-- Event 3: Endpoint Abuse -->
+              <article class="p-3 bg-[#0b0f19] border border-[#1b2336] rounded font-mono space-y-1 hover:border-slate-700 transition">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <span class="px-1.5 py-0.2 rounded text-[10px] font-medium bg-[#141b2d] text-slate-300 border border-[#243048]">RULES</span>
+                    <h3 class="text-xs font-semibold text-slate-200">Endpoint Abuse Pattern</h3>
+                  </div>
+                  <span class="text-[10px] text-slate-500">11m ago</span>
+                </div>
+                <div class="text-[11px] text-slate-400 leading-snug">
+                  Sequential 404 crawler • <span class="text-slate-300">/admin/* scans</span>
+                </div>
+                <div class="flex items-center text-[10px] text-slate-400 space-x-1 pt-0.5">
+                  <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                  </svg>
+                  <span>Action: Flagged &amp; Slow-Drained</span>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <!-- Bottom Action Bar / Decision Policy State -->
+          <div class="pt-3 mt-3 border-t border-[#1b2336] flex items-center justify-between text-xs font-mono">
+            <span class="text-slate-500">Decision Engine Policy:</span>
+            <span class="text-slate-300 font-medium flex items-center space-x-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#06b6d4] inline-block"></span>
+              <span>Active 3-Tier Mitigation</span>
+            </span>
+          </div>
+        </div>
+      </section>
+      <!-- END: MainAnalyticsAndEventsGrid -->
+
+      <!-- BEGIN: DesktopFooterSummary -->
+      <footer class="pt-2 pb-3 text-[11px] font-mono text-slate-500 border-t border-[#1b2336] flex flex-wrap items-center justify-between gap-2" data-purpose="app-footer">
+        <div class="flex items-center space-x-3">
+          <span class="text-slate-300 font-semibold">turboSH AI Middleware v0.2.0</span>
+          <span>•</span>
+          <span>Upstream: <code class="text-slate-400">http://localhost:9092</code></span>
+          <span>•</span>
+          <span>Proxy: <code class="text-slate-400">:8080</code></span>
+          <span>•</span>
+          <span>Internal Metrics: <code class="text-slate-400">:9090/metrics</code></span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="text-slate-400">Cache LRU &amp; ML Inference Synchronized</span>
+        </div>
+      </footer>
+      <!-- END: DesktopFooterSummary -->
+    </main>
+    <!-- END: MainContentScrollableArea -->
+  </div>
+
+  <!-- Interactivity for tabs & controls + Real-time API polling -->
+  <script data-purpose="tab-interactivity">
+    document.querySelectorAll('[data-purpose="instance-tabs"] button').forEach(button => {
       button.addEventListener('click', () => {
-        document.querySelectorAll('[data-purpose="cluster-tabs"] button').forEach(btn => {
+        document.querySelectorAll('[data-purpose="instance-tabs"] button').forEach(btn => {
           btn.className = 'px-2.5 py-1 rounded bg-[#0f1523] border border-[#1b2336] text-slate-400 hover:text-slate-200 hover:border-slate-700 transition';
         });
         button.className = 'px-2.5 py-1 rounded bg-[#06b6d4]/10 border border-[#06b6d4]/40 text-[#06b6d4] flex items-center space-x-1.5 transition';
       });
     });
   </script>
-</body></html>
+
+  <script data-purpose="realtime-dashboard-polling">
+  (function() {
+    'use strict';
+
+    // ── Configuration ──────────────────────────────────────────────────
+    const API_BASE = window.location.origin || 'http://localhost:9090';
+    const API_URL  = API_BASE + '/api/v1/status';
+    const POLL_INTERVAL_MS = 1000;
+
+    // Score history for chart (last 60 data points)
+    const scoreHistory = [];
+    const MAX_HISTORY = 60;
+    let peakRPS = 0;
+    let connected = false;
+
+    // ── Helpers ─────────────────────────────────────────────────────────
+    function fmt(n) { return n != null ? n.toLocaleString() : '—'; }
+    function fmtPct(n) { return n != null ? (n * 100).toFixed(1) + '%' : '—'; }
+    function fmtBytes(b) {
+      if (b == null) return '—';
+      if (b < 1024) return b + ' B';
+      if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+      return (b / 1048576).toFixed(1) + ' MB';
+    }
+    function fmtMs(ms) { return ms != null ? ms.toFixed(2) : '—'; }
+    function fmtUptime(s) {
+      if (s == null) return '—';
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const sec = Math.floor(s % 60);
+      return (h > 0 ? h + 'h ' : '') + m + 'm ' + sec + 's';
+    }
+
+    function setText(sel, text) {
+      const el = document.querySelector(sel);
+      if (el) el.textContent = text;
+    }
+
+    function setHTML(sel, html) {
+      const el = document.querySelector(sel);
+      if (el) el.innerHTML = html;
+    }
+
+    function setWidth(sel, pct) {
+      const el = document.querySelector(sel);
+      if (el) el.style.width = Math.min(100, Math.max(0, pct)) + '%';
+    }
+
+    // ── Dashboard Update ────────────────────────────────────────────────
+    function updateDashboard(data) {
+      connected = true;
+
+      // ── Banner: Middleware Status ──
+      const total = data.requests.total || 0;
+      const byStatus = data.requests.by_status || {};
+      const errCount = Object.entries(byStatus)
+        .filter(([code]) => parseInt(code) >= 400)
+        .reduce((sum, [, count]) => sum + count, 0);
+      const successPct = total > 0 ? ((total - errCount) / total * 100).toFixed(2) : '100.00';
+      const errorPct = total > 0 ? (errCount / total * 100).toFixed(2) : '0.00';
+
+      setHTML('[data-purpose="runtime-telemetry-banner"] .text-emerald-400 span:last-child',
+        `${successPct}% SUCCESS (${errorPct}% Error)`);
+
+      // Throughput
+      const rps = data.requests.recent_rps || 0;
+      if (rps > peakRPS) peakRPS = rps;
+      setHTML('[data-purpose="runtime-telemetry-banner"] [class*="REQUEST THROUGHPUT"] + div .text-base',
+        `${fmt(rps)} <span class="text-xs font-normal text-slate-400">req/s</span>`);
+
+      // Find all stat columns in the telemetry banner by their label
+      const bannerCols = document.querySelectorAll('[data-purpose="runtime-telemetry-banner"] .flex.flex-col');
+      bannerCols.forEach(col => {
+        const label = col.querySelector('.text-\\[10px\\]');
+        if (!label) return;
+        const text = label.textContent.trim();
+        const valueEl = col.querySelector('.text-base');
+
+        if (text.includes('THROUGHPUT') && valueEl) {
+          valueEl.innerHTML = `${fmt(Math.round(rps))} <span class="text-xs font-normal text-slate-400">req/s</span>`;
+          const peakEl = col.querySelector('.text-emerald-400');
+          if (peakEl) peakEl.textContent = `Peak: ${fmt(Math.round(peakRPS))}/s`;
+        }
+        if (text.includes('CACHE') && valueEl) {
+          const mem = fmtBytes(data.cache.current_memory_bytes);
+          const maxMem = fmtBytes(data.cache.max_memory_bytes);
+          valueEl.innerHTML = `${mem} <span class="text-xs font-normal text-slate-400">/ ${maxMem}</span>`;
+          const evEl = col.querySelector('.text-slate-500:last-child');
+          if (evEl) evEl.textContent = `Evictions: ${fmt(data.cache.evictions)}`;
+        }
+        if (text.includes('ML') && valueEl) {
+          const modelText = data.ml.model_loaded ? 'Isolation Forest (ONNX)' : 'Static Rule Mode';
+          valueEl.textContent = modelText;
+        }
+      });
+
+      // ── KPI Cards ──
+      // Card 1: Latest Anomaly Score (from most recent event or 0)
+      const latestScore = data.recent_events.length > 0 ? (data.recent_events[0].score || 0) : 0;
+      const scoreEl = document.querySelector('[data-purpose="metric-anomaly-score"] .text-3xl');
+      if (scoreEl) scoreEl.textContent = latestScore.toFixed(2);
+
+      const statusBadge = document.querySelector('[data-purpose="metric-anomaly-score"] .px-2');
+      if (statusBadge) {
+        if (latestScore > 0.85) {
+          statusBadge.textContent = 'BLOCKED';
+          statusBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-red-950/50 text-red-400 border border-red-800/40 uppercase tracking-wide';
+        } else if (latestScore > 0.65) {
+          statusBadge.textContent = 'RATE LIMITED';
+          statusBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-amber-950/50 text-amber-400 border border-amber-800/40 uppercase tracking-wide';
+        } else {
+          statusBadge.textContent = 'NOMINAL (ALLOW)';
+          statusBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-950/50 text-emerald-400 border border-emerald-800/40 uppercase tracking-wide';
+        }
+      }
+
+      // Card 2: Cache Hit Rate
+      const hitRate = data.cache.hit_rate || 0;
+      const hitRateEl = document.querySelector('[data-purpose="metric-cache-hit-rate"] .text-3xl');
+      if (hitRateEl) hitRateEl.textContent = (hitRate * 100).toFixed(1) + '%';
+
+      const cacheDetailEls = document.querySelectorAll('[data-purpose="metric-cache-hit-rate"] .text-xs.text-slate-400');
+      if (cacheDetailEls.length >= 2) {
+        cacheDetailEls[0].textContent = `Hits: ${fmt(data.cache.hits)}`;
+        cacheDetailEls[1].textContent = `Misses: ${fmt(data.cache.misses)}`;
+      }
+      const cacheBar = document.querySelector('[data-purpose="metric-cache-hit-rate"] .bg-\\[\\#06b6d4\\]');
+      if (cacheBar) cacheBar.style.width = (hitRate * 100) + '%';
+
+      // Card 3: p99 Latency
+      const p99El = document.querySelector('[data-purpose="metric-p99-latency"] .text-3xl');
+      if (p99El) p99El.textContent = fmtMs(data.requests.p99_latency_ms);
+      const avgLatEl = document.querySelector('[data-purpose="metric-p99-latency"] .px-2');
+      if (avgLatEl) avgLatEl.textContent = `avg: ${fmtMs(data.requests.avg_latency_ms)}ms`;
+
+      // Card 4: Decision Actions
+      const totalMitigations = (data.ml.decisions.block || 0) + (data.ml.decisions.rate_limit || 0);
+      const mitigEl = document.querySelector('[data-purpose="metric-anomalies"] .text-3xl');
+      if (mitigEl) mitigEl.textContent = fmt(totalMitigations);
+      const blockEl = document.querySelector('[data-purpose="metric-anomalies"] .text-red-400');
+      if (blockEl) blockEl.textContent = `${fmt(data.ml.decisions.block || 0)} Blocked (403)`;
+      const throttleEl = document.querySelector('[data-purpose="metric-anomalies"] .text-amber-400');
+      if (throttleEl) throttleEl.textContent = `${fmt(data.ml.decisions.rate_limit || 0)} Throttled (429)`;
+
+      // ── Sidebar: Scheduler Load ──
+      const schedActive = data.scheduler.active || 0;
+      const schedCap = data.scheduler.capacity || 100;
+      const schedWaiting = data.scheduler.waiting || 0;
+      const schedPct = schedCap > 0 ? (schedActive / schedCap * 100) : 0;
+
+      const sidebarCard = document.querySelector('.p-3.bg-\\[\\#0f1523\\]');
+      if (sidebarCard) {
+        const schedLabel = sidebarCard.querySelector('.text-emerald-400');
+        if (schedLabel) schedLabel.textContent = `${schedActive} / ${schedCap} SLOTS`;
+        const schedBar = sidebarCard.querySelector('.bg-\\[\\#06b6d4\\]');
+        if (schedBar) schedBar.style.width = schedPct + '%';
+        const schedDetails = sidebarCard.querySelectorAll('.text-\\[10px\\].text-slate-500');
+        if (schedDetails.length >= 1) schedDetails[0].textContent = `Queue Waiting: ${schedWaiting}`;
+      }
+
+      // ── Events Feed ──
+      const eventList = document.querySelector('[data-purpose="event-list"]');
+      if (eventList && data.recent_events.length > 0) {
+        eventList.innerHTML = '';
+        const events = data.recent_events.slice(0, 5); // show last 5
+        events.forEach(evt => {
+          const borderColor = evt.type === 'BLOCK' ? 'border-red-950/80' :
+                              evt.type === 'THROTTLE' ? 'border-amber-950/80' : 'border-[#1b2336]';
+          const badgeClass = evt.type === 'BLOCK'
+            ? 'bg-red-950/80 text-red-400 border-red-800/60'
+            : evt.type === 'THROTTLE'
+            ? 'bg-amber-950/80 text-amber-400 border-amber-800/60'
+            : 'bg-[#141b2d] text-slate-300 border-[#243048]';
+          const timeAgo = getTimeAgo(evt.timestamp);
+
+          eventList.innerHTML += `
+            <article class="p-3 bg-[#0b0f19] border ${borderColor} rounded font-mono space-y-1 hover:border-slate-700 transition">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                  <span class="px-1.5 py-0.2 rounded text-[10px] font-bold ${badgeClass}">${evt.type}</span>
+                  <h3 class="text-xs font-semibold text-slate-200">${escapeHtml(evt.detail)}</h3>
+                </div>
+                <span class="text-[10px] text-slate-500">${timeAgo}</span>
+              </div>
+              <div class="text-[11px] text-slate-400 leading-snug">
+                Score: ${evt.score.toFixed(2)} • <span class="text-slate-300">${escapeHtml(evt.path)}</span>
+              </div>
+              <div class="flex items-center text-[10px] text-slate-400 space-x-1 pt-0.5">
+                <span>HTTP ${evt.status || '—'} → IP ${evt.ip_hash || '—'}</span>
+              </div>
+            </article>`;
+        });
+      } else if (eventList && data.recent_events.length === 0) {
+        eventList.innerHTML = `
+          <div class="p-4 text-center text-xs font-mono text-slate-500">
+            No mitigation events yet. Send traffic to generate events.
+          </div>`;
+      }
+
+      // Update event count badge
+      const eventCountBadge = document.querySelector('[data-purpose="telemetry-events-feed"] .px-1\\.5');
+      if (eventCountBadge) eventCountBadge.textContent = `${data.recent_events.length} active`;
+
+      // ── Footer ──
+      const footer = document.querySelector('[data-purpose="app-footer"]');
+      if (footer) {
+        const uptimeText = `Uptime: ${fmtUptime(data.uptime_seconds)} • Total: ${fmt(total)} reqs`;
+        const syncSpan = footer.querySelector('.text-slate-400:last-child');
+        if (syncSpan) syncSpan.textContent = uptimeText;
+      }
+
+      // ── Connection indicator ──
+      updateConnectionStatus(true);
+
+      // ── Chart: push score into history ──
+      scoreHistory.push({
+        time: Date.now(),
+        score: latestScore,
+        rps: rps
+      });
+      if (scoreHistory.length > MAX_HISTORY) scoreHistory.shift();
+      updateChart();
+    }
+
+    // ── SVG Chart Updater ───────────────────────────────────────────────
+    function updateChart() {
+      const svg = document.querySelector('[data-purpose="packet-ingress-graph-card"] svg');
+      if (!svg || scoreHistory.length < 2) return;
+
+      const viewWidth = 800;
+      const viewHeight = 280;
+      const padding = 20;
+      const usableW = viewWidth - 2 * padding;
+      const usableH = viewHeight - 2 * padding;
+
+      // Build path from score history (score 0-1 mapped to y)
+      const points = scoreHistory.map((pt, i) => {
+        const x = padding + (i / (MAX_HISTORY - 1)) * usableW;
+        const y = padding + (1 - pt.score) * usableH; // invert: high score = top
+        return { x, y };
+      });
+
+      // Build smooth path
+      let pathD = `M ${points[0].x} ${points[0].y}`;
+      for (let i = 1; i < points.length; i++) {
+        const cp1x = points[i-1].x + (points[i].x - points[i-1].x) * 0.4;
+        const cp2x = points[i].x - (points[i].x - points[i-1].x) * 0.4;
+        pathD += ` C ${cp1x} ${points[i-1].y}, ${cp2x} ${points[i].y}, ${points[i].x} ${points[i].y}`;
+      }
+
+      // Update waveform path
+      const waveformPath = svg.querySelector('path[stroke="#06b6d4"]');
+      if (waveformPath) waveformPath.setAttribute('d', pathD);
+
+      // Update fill area
+      const areaPath = svg.querySelector('path[fill="url(#scoreGlow)"]');
+      if (areaPath) {
+        const last = points[points.length - 1];
+        areaPath.setAttribute('d', pathD + ` L ${last.x} ${viewHeight - padding} L ${points[0].x} ${viewHeight - padding} Z`);
+      }
+
+      // Update current head dot
+      const headDot = svg.querySelector('circle[fill="#06b6d4"]');
+      if (headDot && points.length > 0) {
+        const last = points[points.length - 1];
+        headDot.setAttribute('cx', last.x);
+        headDot.setAttribute('cy', last.y);
+      }
+
+      // Update "Now (Score: X)" label
+      const nowLabel = document.querySelector('[data-purpose="packet-ingress-graph-card"] .text-slate-300.font-medium');
+      if (nowLabel && scoreHistory.length > 0) {
+        nowLabel.textContent = `Now (Score: ${scoreHistory[scoreHistory.length-1].score.toFixed(2)})`;
+      }
+    }
+
+    // ── Connection Status ───────────────────────────────────────────────
+    function updateConnectionStatus(isConnected) {
+      const indicator = document.querySelector('[title*="Prometheus"]');
+      if (indicator) {
+        const svg = indicator.querySelector('svg');
+        if (svg) {
+          svg.className.baseVal = isConnected
+            ? 'w-3.5 h-3.5 text-[#06b6d4]'
+            : 'w-3.5 h-3.5 text-red-400';
+        }
+      }
+    }
+
+    // ── Utilities ────────────────────────────────────────────────────────
+    function getTimeAgo(timestamp) {
+      if (!timestamp) return '—';
+      const diff = Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000);
+      if (diff < 5) return 'just now';
+      if (diff < 60) return diff + 's ago';
+      if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+      return Math.floor(diff / 3600) + 'h ago';
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // ── Poll Loop ───────────────────────────────────────────────────────
+    async function poll() {
+      try {
+        const resp = await fetch(API_URL, { cache: 'no-store' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        updateDashboard(data);
+      } catch (err) {
+        if (connected) {
+          console.warn('[dashboard] API unreachable:', err.message);
+        }
+        connected = false;
+        updateConnectionStatus(false);
+      }
+    }
+
+    // Start polling
+    poll();
+    setInterval(poll, POLL_INTERVAL_MS);
+
+    console.log('[turboSH] Real-time dashboard polling started → ' + API_URL);
+  })();
+  </script>
+</body>
+</html>

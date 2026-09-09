@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-
-<html class="h-full bg-zinc-50" lang="en"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>GopherML Network Monitor</title>
-<!-- Tailwind CSS v3 with Plugins -->
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<!-- Tailwind Configuration -->
-<script>
+<html class="h-full bg-zinc-50" lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>turboSH — AI Middleware & Traffic Shield</title>
+  <!-- Tailwind CSS v3 with Plugins -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <!-- Tailwind Configuration -->
+  <script>
     tailwind.config = {
       theme: {
         extend: {
@@ -31,6 +31,7 @@
               900: '#18181b',
               950: '#09090b'
             },
+            brand: '#0284c7',
             emerald: {
               500: '#10b981',
               600: '#059669'
@@ -40,15 +41,15 @@
       }
     }
   </script>
-<!-- Typography and Custom Styles -->
-<style data-purpose="custom-typography">
+  <!-- Typography and Custom Styles -->
+  <style data-purpose="custom-typography">
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
     
     .font-mono-numbers {
       font-variant-numeric: tabular-nums;
     }
   </style>
-<style data-purpose="chart-grid">
+  <style data-purpose="chart-grid">
     .grid-lines {
       background-size: 40px 40px;
       background-image: 
@@ -58,469 +59,822 @@
   </style>
 </head>
 <body class="h-full flex flex-col font-sans text-zinc-900 antialiased selection:bg-zinc-200">
-<div class="flex-1 flex min-h-0">
-<!-- BEGIN: Sidebar -->
-<aside class="w-64 border-r border-zinc-200 bg-white flex flex-col justify-between flex-shrink-0 select-none" data-purpose="main-sidebar">
-<div class="p-4 flex flex-col gap-6">
-<!-- Logo Section -->
-<div class="flex items-center gap-2.5 px-2 py-1">
-<svg class="w-6 h-6 text-zinc-950 flex-shrink-0" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" viewbox="0 0 24 24">
-<path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"></path>
-<circle cx="12" cy="12" fill="currentColor" r="3"></circle>
-</svg>
-<div class="flex items-baseline gap-1.5">
-<span class="text-base font-bold tracking-tight text-zinc-950">GopherML</span>
-<span class="text-[11px] font-semibold text-zinc-400 tracking-wider">MONITOR</span>
-</div>
-</div>
-<!-- Navigation Links -->
-<nav class="flex flex-col gap-1">
-<div class="px-2 pb-2 text-[10px] font-bold tracking-widest text-zinc-400 uppercase font-mono">Navigation</div>
-<!-- Overview Link (Active) -->
-<a class="flex items-center justify-between px-3 py-2 text-xs font-semibold text-zinc-900 bg-zinc-100 rounded-lg border border-zinc-200/80 shadow-[0_1px_2px_rgba(0,0,0,0.02)]" href="#">
-<div class="flex items-center gap-3">
-<svg class="w-4 h-4 text-zinc-700" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
-<path d="M3 3v18h18"></path>
-<path d="M18 17V9"></path>
-<path d="M13 17V5"></path>
-<path d="M8 17v-3"></path>
-</svg>
-<span>Overview</span>
-</div>
-<span class="w-1.5 h-1.5 rounded-full bg-zinc-800"></span>
-</a>
-<!-- Nodes Link -->
-<a class="flex items-center justify-between px-3 py-2 text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 rounded-lg transition-colors" href="#">
-<div class="flex items-center gap-3">
-<svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
-<rect height="8" rx="1.5" width="8" x="2" y="2"></rect>
-<path d="M14 2c1 0 2 1 2 2v4a2 2 0 0 1-2 2"></path>
-<path d="M20 2c1 0 2 1 2 2v4a2 2 0 0 1-2 2"></path>
-<rect height="8" rx="1.5" width="8" x="2" y="14"></rect>
-<path d="M14 14c1 0 2 1 2 2v4a2 2 0 0 1-2 2"></path>
-<path d="M20 14c1 0 2 1 2 2v4a2 2 0 0 1-2 2"></path>
-</svg>
-<span>Nodes</span>
-</div>
-</a>
-<!-- Alerts Link -->
-<a class="flex items-center justify-between px-3 py-2 text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 rounded-lg transition-colors" href="#">
-<div class="flex items-center gap-3">
-<svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
-<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
-<line x1="12" x2="12" y1="9" y2="13"></line>
-<line x1="12" x2="12.01" y1="17" y2="17"></line>
-</svg>
-<span>Alerts</span>
-</div>
-<span class="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-mono font-bold text-zinc-700 bg-zinc-200 rounded">3</span>
-</a>
-<!-- Settings Link -->
-<a class="flex items-center justify-between px-3 py-2 text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 rounded-lg transition-colors" href="#">
-<div class="flex items-center gap-3">
-<svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewbox="0 0 24 24">
-<line x1="4" x2="20" y1="21" y2="21"></line>
-<line x1="4" x2="20" y1="14" y2="14"></line>
-<line x1="4" x2="20" y1="7" y2="7"></line>
-<circle cx="9" cy="21" r="2"></circle>
-<circle cx="15" cy="14" r="2"></circle>
-<circle cx="10" cy="7" r="2"></circle>
-</svg>
-<span>Settings</span>
-</div>
-</a>
-</nav>
-</div>
-<!-- Pipeline Status Box -->
-<div class="p-4 border-t border-zinc-200">
-<div class="p-3 bg-zinc-50 border border-zinc-200 rounded-lg">
-<div class="flex items-center justify-between text-[11px] font-mono mb-1.5">
-<span class="text-zinc-500 font-semibold tracking-wide uppercase">Pipeline</span>
-<span class="text-emerald-600 font-bold tracking-tight">HEALTHY</span>
-</div>
-<div class="w-full bg-zinc-200 h-1.5 rounded-full overflow-hidden mb-2">
-<div class="bg-emerald-500 h-full w-[94%] rounded-full"></div>
-</div>
-<div class="flex items-center justify-between text-[10px] font-mono text-zinc-500">
-<span>Sync jitter</span>
-<span class="text-zinc-700 font-medium">0.04ms</span>
-</div>
-</div>
-</div>
-</aside>
-<!-- END: Sidebar -->
-<!-- BEGIN: Main Content Area -->
-<div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
-<!-- BEGIN: Top Control Bar -->
-<header class="h-14 border-b border-zinc-200 bg-white px-6 flex items-center justify-between flex-shrink-0 sticky top-0 z-20" data-purpose="top-header">
-<!-- Cluster Selector Pills -->
-<div class="flex items-center gap-2 font-mono text-xs">
-<button class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 text-white rounded-md font-medium shadow-sm transition">
-<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-<span>us-east-cluster</span>
-</button>
-<button class="px-3 py-1.5 bg-white hover:bg-zinc-100 text-zinc-600 hover:text-zinc-900 rounded-md border border-zinc-200 font-medium transition">
-            eu-central-edge
+  <div class="flex-1 flex min-h-0">
+    <!-- BEGIN: Sidebar -->
+    <aside class="w-64 border-r border-zinc-200 bg-white flex flex-col justify-between flex-shrink-0 select-none" data-purpose="main-sidebar">
+      <div class="p-4 flex flex-col gap-6">
+        <!-- Logo Section -->
+        <div class="flex items-center gap-2.5 px-2 py-1">
+          <div class="w-8 h-8 rounded-lg bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-600 shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"></path>
+            </svg>
+          </div>
+          <div class="flex items-baseline gap-1.5">
+            <span class="text-base font-bold tracking-tight text-zinc-950 font-mono">turboSH</span>
+            <span class="text-[10px] font-bold text-sky-700 bg-sky-100/80 px-1.5 py-0.5 rounded tracking-wide font-mono">AI MIDDLEWARE</span>
+          </div>
+        </div>
+
+        <!-- Navigation Links -->
+        <nav class="flex flex-col gap-1">
+          <div class="px-2 pb-2 text-[10px] font-bold tracking-widest text-zinc-400 uppercase font-mono">Middleware Navigation</div>
+          <!-- Overview Link (Active) -->
+          <a class="flex items-center justify-between px-3 py-2 text-xs font-semibold text-zinc-900 bg-zinc-100 rounded-lg border border-zinc-200/80 shadow-[0_1px_2px_rgba(0,0,0,0.02)]" href="#">
+            <div class="flex items-center gap-3">
+              <svg class="w-4 h-4 text-zinc-700" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M3 3v18h18"></path>
+                <path d="M18 17V9"></path>
+                <path d="M13 17V5"></path>
+                <path d="M8 17v-3"></path>
+              </svg>
+              <span>Overview</span>
+            </div>
+            <span class="w-1.5 h-1.5 rounded-full bg-zinc-800"></span>
+          </a>
+          <!-- Traffic & Proxy Link -->
+          <a class="flex items-center justify-between px-3 py-2 text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 rounded-lg transition-colors" href="#">
+            <div class="flex items-center gap-3">
+              <svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+              </svg>
+              <span>Traffic &amp; Proxy</span>
+            </div>
+          </a>
+          <!-- Cache System Link -->
+          <a class="flex items-center justify-between px-3 py-2 text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 rounded-lg transition-colors" href="#">
+            <div class="flex items-center gap-3">
+              <svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7C5 4 4 5 4 7zm0 4h16M9 4v3"></path>
+              </svg>
+              <span>Cache System</span>
+            </div>
+          </a>
+          <!-- ML & Decisions Link -->
+          <a class="flex items-center justify-between px-3 py-2 text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 rounded-lg transition-colors" href="#">
+            <div class="flex items-center gap-3">
+              <svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+              </svg>
+              <span>ML &amp; Decisions</span>
+            </div>
+          </a>
+          <!-- Threat Log Link -->
+          <a class="flex items-center justify-between px-3 py-2 text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 rounded-lg transition-colors" href="#">
+            <div class="flex items-center gap-3">
+              <svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24">
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+                <line x1="12" x2="12" y1="9" y2="13"></line>
+                <line x1="12" x2="12.01" y1="17" y2="17"></line>
+              </svg>
+              <span>Threat Log</span>
+            </div>
+            <span class="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-mono font-bold text-red-700 bg-red-100 rounded">3 Active</span>
+          </a>
+          <!-- Configuration Link -->
+          <a class="flex items-center justify-between px-3 py-2 text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 rounded-lg transition-colors" href="#">
+            <div class="flex items-center gap-3">
+              <svg class="w-4 h-4 text-zinc-400" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24">
+                <line x1="4" x2="20" y1="21" y2="21"></line>
+                <line x1="4" x2="20" y1="14" y2="14"></line>
+                <line x1="4" x2="20" y1="7" y2="7"></line>
+                <circle cx="9" cy="21" r="2"></circle>
+                <circle cx="15" cy="14" r="2"></circle>
+                <circle cx="10" cy="7" r="2"></circle>
+              </svg>
+              <span>Configuration</span>
+            </div>
+          </a>
+        </nav>
+      </div>
+
+      <!-- Concurrency Scheduler Status Box -->
+      <div class="p-4 border-t border-zinc-200">
+        <div class="p-3 bg-zinc-50 border border-zinc-200 rounded-lg space-y-2">
+          <div class="flex items-center justify-between text-[11px] font-mono">
+            <span class="text-zinc-500 font-semibold tracking-wide uppercase">Scheduler Load</span>
+            <span class="text-emerald-600 font-bold tracking-tight">24 / 100 SLOTS</span>
+          </div>
+          <div class="w-full bg-zinc-200 h-1.5 rounded-full overflow-hidden">
+            <div class="bg-emerald-500 h-full w-[24%] rounded-full"></div>
+          </div>
+          <div class="flex items-center justify-between text-[10px] font-mono text-zinc-500">
+            <span>Queue waiting: 0</span>
+            <span class="text-zinc-700 font-medium">Timeout: 2s</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+    <!-- END: Sidebar -->
+
+    <!-- BEGIN: Main Content Area -->
+    <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+      <!-- BEGIN: Top Control Bar -->
+      <header class="h-14 border-b border-zinc-200 bg-white px-6 flex items-center justify-between flex-shrink-0 sticky top-0 z-20" data-purpose="top-header">
+        <!-- Instance & Upstream Selector Pills -->
+        <div class="flex items-center gap-2 font-mono text-xs" data-purpose="instance-tabs">
+          <button class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 text-white rounded-md font-medium shadow-sm transition">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            <span>Proxy :8080</span>
           </button>
-<button class="px-3 py-1.5 bg-white hover:bg-zinc-100 text-zinc-600 hover:text-zinc-900 rounded-md border border-zinc-200 font-medium transition">
-            sg-node
+          <button class="px-3 py-1.5 bg-white hover:bg-zinc-100 text-zinc-600 hover:text-zinc-900 rounded-md border border-zinc-200 font-medium transition" title="Upstream Target Service">
+            Upstream :9092
           </button>
-</div>
-<!-- Telemetry Status & Time Window Indicators -->
-<div class="flex items-center gap-4">
-<!-- Engine Status Pill -->
-<div class="inline-flex items-center gap-2 px-2.5 py-1 bg-zinc-50 border border-zinc-200 rounded-md font-mono text-xs">
-<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-<span class="text-zinc-700 font-medium">Engine Active</span>
-<span class="text-zinc-300">•</span>
-<span class="text-zinc-500">Go 1.22.4</span>
-<span class="px-1.5 py-0.2 bg-zinc-200/80 text-zinc-700 font-bold text-[10px] tracking-wide rounded">LIVE</span>
-</div>
-<!-- Window Selector -->
-<div class="flex items-center gap-2 px-3 py-1 bg-white border border-zinc-200 rounded-md font-mono text-xs text-zinc-600">
-<svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewbox="0 0 24 24">
-<circle cx="12" cy="12" r="10" stroke-width="2"></circle>
-<polyline points="12 6 12 12 16 14" stroke-width="2"></polyline>
-</svg>
-<span>Window: <strong class="text-zinc-800 font-semibold">T-15m to Now</strong></span>
-</div>
-<!-- Broadcast Icon Button -->
-<button class="p-1.5 border border-zinc-200 rounded-md hover:bg-zinc-50 text-zinc-600 transition" title="Broadcast Telemetry Feed">
-<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
-<path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9M19.1 4.9c3.9 3.9 3.9 10.3 0 14.2M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5M16.2 7.7c2.3 2.3 2.3 6.1 0 8.5M12 12h.01"></path>
-</svg>
-</button>
-</div>
-</header>
-<!-- END: Top Control Bar -->
-<!-- Main Layout Body -->
-<main class="p-6 flex flex-col gap-6 max-w-7xl mx-auto w-full">
-<!-- BEGIN: Top Telemetry Banner -->
-<section class="bg-white border border-zinc-200 rounded-xl p-4 shadow-sm" data-purpose="runtime-telemetry-banner">
-<div class="grid grid-cols-1 md:grid-cols-4 items-center gap-4 text-xs font-mono">
-<!-- Left Info / Drop Metric -->
-<div class="flex items-center gap-3">
-<div class="w-8 h-8 rounded-lg bg-zinc-100 border border-zinc-200 flex items-center justify-center text-zinc-600">
-<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
-<rect height="14" rx="2" width="18" x="3" y="5"></rect>
-<path d="M7 15h10M7 9h4"></path>
-</svg>
-</div>
-<div>
-<div class="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">RUNTIME TELEMETRY</div>
-<div class="flex items-center gap-1.5 text-emerald-600 font-semibold">
-<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-<span>0.02% DROP</span>
-</div>
-</div>
-</div>
-<!-- Goroutines Metric -->
-<div class="border-l border-zinc-100 pl-4">
-<div class="text-[10px] text-zinc-400 uppercase tracking-wider">Goroutines</div>
-<div class="flex items-baseline gap-2">
-<span class="text-xl font-bold text-zinc-900 font-mono-numbers">1,482</span>
-<span class="text-emerald-600 text-xs font-semibold">+18/s</span>
-</div>
-</div>
-<!-- RSS Memory Metric -->
-<div class="border-l border-zinc-100 pl-4">
-<div class="text-[10px] text-zinc-400 uppercase tracking-wider">RSS Memory</div>
-<div class="flex items-baseline gap-1.5">
-<span class="text-xl font-bold text-zinc-900 font-mono-numbers">84.2</span>
-<span class="text-zinc-500 text-xs font-semibold">MB</span>
-<span class="text-zinc-400 text-[11px] ml-1">gc: 1.1ms</span>
-</div>
-</div>
-<!-- ML Model & Inference Sync -->
-<div class="border-l border-zinc-100 pl-4 flex items-center justify-between">
-<div>
-<div class="text-[10px] text-zinc-400 uppercase tracking-wider">ML Model</div>
-<div class="font-bold text-zinc-900">iso-forest-v3</div>
-<div class="text-[11px] text-zinc-400">batch: 64pk</div>
-</div>
-<div class="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-50 border border-zinc-200 rounded-md text-[11px] text-zinc-600">
-<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-<span>Inference Sync</span>
-</div>
-</div>
-</div>
-</section>
-<!-- END: Top Telemetry Banner -->
-<!-- BEGIN: Core Metric KPI Row -->
-<section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4" data-purpose="metric-kpi-grid">
-<!-- Card 1: Anomaly Score -->
-<div class="bg-white border border-zinc-200 rounded-xl p-4 shadow-sm flex flex-col justify-between">
-<div class="flex items-center justify-between mb-2">
-<span class="text-[11px] font-mono uppercase font-bold text-zinc-400 tracking-wide">Anomaly Score</span>
-<span class="px-2 py-0.5 text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded">NOMINAL</span>
-</div>
-<div class="flex items-baseline gap-1 mb-3">
-<span class="text-3xl font-extrabold text-zinc-900 font-mono">0.14</span>
-<span class="text-sm font-mono text-zinc-400">/ 1.0</span>
-</div>
-<!-- Segmented Gauge Bar -->
-<div class="space-y-1.5">
-<div class="grid grid-cols-6 gap-1.5">
-<div class="h-2 rounded bg-emerald-400"></div>
-<div class="h-2 rounded bg-emerald-400"></div>
-<div class="h-2 rounded bg-emerald-200"></div>
-<div class="h-2 rounded bg-zinc-100 border border-zinc-200"></div>
-<div class="h-2 rounded bg-zinc-100 border border-zinc-200"></div>
-<div class="h-2 rounded bg-zinc-100 border border-zinc-200"></div>
-</div>
-<div class="flex justify-between text-[10px] font-mono text-zinc-400">
-<span>0.00</span>
-<span>Threshold 0.85</span>
-</div>
-</div>
-</div>
-<!-- Card 2: Ingest Rate -->
-<div class="bg-white border border-zinc-200 rounded-xl p-4 shadow-sm flex flex-col justify-between">
-<div class="flex items-center justify-between mb-2">
-<span class="text-[11px] font-mono uppercase font-bold text-zinc-400 tracking-wide">Ingest Rate</span>
-<svg class="w-3.5 h-3.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
-<line x1="7" x2="17" y1="17" y2="7"></line>
-<polyline points="7 7 17 7 17 17"></polyline>
-</svg>
-</div>
-<div class="flex items-baseline gap-1 mb-3">
-<span class="text-3xl font-extrabold text-zinc-900 font-mono">428.6</span>
-<span class="text-sm font-mono text-zinc-500 font-medium">MB/s</span>
-</div>
-<!-- Buffer Bar -->
-<div class="space-y-1">
-<div class="flex justify-between text-[11px] font-mono text-zinc-500">
-<span>Chan Buffer</span>
-<span class="font-semibold text-zinc-800">12%</span>
-</div>
-<div class="w-full bg-zinc-100 border border-zinc-200 h-2 rounded-full overflow-hidden">
-<div class="bg-zinc-800 h-full w-[12%] rounded-full"></div>
-</div>
-</div>
-</div>
-<!-- Card 3: P99 Latency -->
-<div class="bg-white border border-zinc-200 rounded-xl p-4 shadow-sm flex flex-col justify-between">
-<div class="flex items-center justify-between mb-2">
-<span class="text-[11px] font-mono uppercase font-bold text-zinc-400 tracking-wide">p99 Latency</span>
-<span class="px-1.5 py-0.5 text-[10px] font-mono font-bold text-zinc-600 bg-zinc-100 border border-zinc-200 rounded">µs SYNC</span>
-</div>
-<div class="flex items-baseline gap-1 mb-3">
-<span class="text-3xl font-extrabold text-zinc-900 font-mono">1.42</span>
-<span class="text-sm font-mono text-zinc-500 font-medium">ms</span>
-</div>
-<div class="pt-2 border-t border-zinc-100 flex items-center text-xs font-mono font-medium text-emerald-600">
-<svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" stroke-width="2.5" viewbox="0 0 24 24">
-<polyline points="6 9 12 15 18 9"></polyline>
-</svg>
-<span>-0.18ms vs avg</span>
-</div>
-</div>
-<!-- Card 4: Anomalies Flagged -->
-<div class="bg-white border border-zinc-200 rounded-xl p-4 shadow-sm flex flex-col justify-between">
-<div class="flex items-center justify-between mb-2">
-<span class="text-[11px] font-mono uppercase font-bold text-zinc-400 tracking-wide">Anomalies</span>
-<span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
-</div>
-<div class="flex items-baseline gap-2 mb-3">
-<span class="text-3xl font-extrabold text-zinc-900 font-mono">2</span>
-<span class="text-sm font-mono text-zinc-500">flagged</span>
-</div>
-<div class="pt-2 border-t border-zinc-100 flex items-center gap-2 text-xs font-mono">
-<span class="font-bold text-amber-600">1 warn</span>
-<span class="text-zinc-300">•</span>
-<span class="font-bold text-emerald-600">1 mitigated</span>
-</div>
-</div>
-</section>
-<!-- END: Core Metric KPI Row -->
-<!-- BEGIN: Main Telemetry & Events Split -->
-<section class="grid grid-cols-1 lg:grid-cols-3 gap-6" data-purpose="telemetry-detail-split">
-<!-- Hero Graph (Span 2 Cols) -->
-<div class="lg:col-span-2 bg-white border border-zinc-200 rounded-xl p-5 shadow-sm flex flex-col justify-between">
-<!-- Chart Header -->
-<div class="flex items-start justify-between mb-4">
-<div>
-<div class="flex items-center gap-2">
-<h2 class="text-base font-bold text-zinc-950">Packet Ingress vs ML Threshold</h2>
-<span class="px-1.5 py-0.5 text-[10px] font-mono font-bold text-zinc-600 bg-zinc-100 border border-zinc-200 rounded">60 FPS</span>
-</div>
-<p class="text-xs font-mono text-zinc-500 mt-0.5">Real-time isolation score per flow chunk</p>
-</div>
-<!-- Top Indicator Badges -->
-<div class="flex items-center gap-2 font-mono text-xs">
-<span class="px-2 py-0.5 text-[11px] font-semibold text-red-600 border border-red-200 bg-red-50/50 rounded">
-                  σ=3.2
-                </span>
-</div>
-</div>
-<!-- Chart Canvas Container -->
-<div class="relative w-full h-64 border border-zinc-200 rounded-lg overflow-hidden bg-zinc-50/30 grid-lines flex flex-col justify-between p-3">
-<!-- Threshold Line Annotation -->
-<div class="absolute top-[28%] left-0 right-0 border-b border-dashed border-red-400 z-10 flex items-center justify-between px-3">
-<span class="text-[10px] font-mono font-bold text-red-600 tracking-wider bg-white/90 px-1 py-0.5 rounded border border-red-200">
-                  CRITICAL MODEL THRESHOLD (0.85)
-                </span>
-<span class="text-[10px] font-mono text-red-500 font-semibold bg-white/80 px-1">σ=3.2</span>
-</div>
-<!-- SVG Curve Drawing representing ingress score -->
-<svg class="absolute inset-0 w-full h-full" preserveaspectratio="none" viewbox="0 0 700 240">
-<defs>
-<lineargradient id="curveGradient" x1="0%" x2="0%" y1="0%" y2="100%">
-<stop offset="0%" stop-color="#27272a" stop-opacity="0.15"></stop>
-<stop offset="100%" stop-color="#27272a" stop-opacity="0.0"></stop>
-</lineargradient>
-</defs>
-<!-- Gradient Fill Area -->
-<path d="M 0 170 
-                         C 120 160, 200 150, 260 165 
-                         C 320 180, 360 145, 410 130 
-                         C 460 115, 480 180, 520 180 
-                         C 560 180, 590 60, 620 60 
-                         C 650 60, 670 190, 700 120 
-                         L 700 240 L 0 240 Z" fill="url(#curveGradient)"></path>
-<!-- Ingress Curve Stroke -->
-<path d="M 0 170 
-                         C 120 160, 200 150, 260 165 
-                         C 320 180, 360 145, 410 130 
-                         C 460 115, 480 180, 520 180 
-                         C 560 180, 590 60, 620 60 
-                         C 650 60, 670 190, 700 120" fill="none" stroke="#18181b" stroke-linejoin="round" stroke-width="2.5"></path>
-<!-- Critical Anomaly Point Above Threshold -->
-<circle class="animate-pulse" cx="578" cy="130" fill="#ef4444" r="5" stroke="#ffffff" stroke-width="2"></circle>
-<circle cx="620" cy="60" fill="#18181b" r="4.5" stroke="#ffffff" stroke-width="2"></circle>
-<circle cx="700" cy="120" fill="#10b981" r="4"></circle>
-</svg>
-<!-- Chart X-Axis Labels -->
-<div class="mt-auto z-10 flex justify-between text-[11px] font-mono text-zinc-400 pt-2 border-t border-zinc-200">
-<span>T-15m</span>
-<span>T-10m</span>
-<span>T-5m</span>
-<span class="text-zinc-800 font-bold">Now</span>
-</div>
-</div>
-<!-- Graph Legend / Inference Info -->
-<div class="mt-4 pt-3 border-t border-zinc-100 flex flex-wrap items-center justify-between text-xs font-mono text-zinc-500">
-<div class="flex items-center gap-4">
-<div class="flex items-center gap-1.5">
-<span class="w-3 h-0.5 bg-zinc-900 rounded"></span>
-<span class="text-zinc-700 font-medium">Ingress Flow Isolation Score</span>
-</div>
-<div class="flex items-center gap-1.5">
-<span class="w-3 h-0.5 bg-red-400 border-b border-dashed border-red-500"></span>
-<span class="text-zinc-700 font-medium">Critical Bound</span>
-</div>
-</div>
-<div class="text-[11px] text-zinc-400">
-                Sub-second inference window: 250ms
+          <button class="px-3 py-1.5 bg-white hover:bg-zinc-100 text-zinc-600 hover:text-zinc-900 rounded-md border border-zinc-200 font-medium transition" title="Prometheus Metrics Listener">
+            Metrics :9090
+          </button>
+        </div>
+
+        <!-- Telemetry Status & Time Window Indicators -->
+        <div class="flex items-center gap-4">
+          <!-- Backend Status Pill -->
+          <div class="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 bg-zinc-50 border border-zinc-200 rounded-md font-mono text-xs">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            <span class="text-zinc-500">Backend:</span>
+            <span class="text-zinc-800 font-semibold">localhost:9092</span>
+          </div>
+          <!-- Engine Status Pill -->
+          <div class="inline-flex items-center gap-2 px-2.5 py-1 bg-zinc-50 border border-zinc-200 rounded-md font-mono text-xs">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span class="text-zinc-700 font-medium">Engine Active</span>
+            <span class="text-zinc-300">•</span>
+            <span class="text-zinc-500">Go 1.24+</span>
+            <span class="px-1.5 py-0.2 bg-zinc-200/80 text-zinc-700 font-bold text-[10px] tracking-wide rounded">LIVE</span>
+          </div>
+          <!-- Window Selector -->
+          <div class="flex items-center gap-2 px-3 py-1 bg-white border border-zinc-200 rounded-md font-mono text-xs text-zinc-600">
+            <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" stroke-width="2"></circle>
+              <polyline points="12 6 12 12 16 14" stroke-width="2"></polyline>
+            </svg>
+            <span>Window: <strong class="text-zinc-800 font-semibold">T-15m to Now</strong></span>
+          </div>
+          <!-- Broadcast / Metrics Feed Icon Button -->
+          <button class="p-1.5 border border-zinc-200 rounded-md hover:bg-zinc-50 text-zinc-600 transition" title="Prometheus Metrics Feed Connected">
+            <svg class="w-4 h-4 text-sky-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9M19.1 4.9c3.9 3.9 3.9 10.3 0 14.2M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5M16.2 7.7c2.3 2.3 2.3 6.1 0 8.5M12 12h.01"></path>
+            </svg>
+          </button>
+        </div>
+      </header>
+      <!-- END: Top Control Bar -->
+
+      <!-- Main Layout Body -->
+      <main class="p-6 flex flex-col gap-6 max-w-7xl mx-auto w-full">
+        <!-- BEGIN: Top Telemetry Banner -->
+        <section class="bg-white border border-zinc-200 rounded-xl p-4 shadow-sm" data-purpose="runtime-telemetry-banner">
+          <div class="grid grid-cols-1 md:grid-cols-4 items-center gap-4 text-xs font-mono">
+            <!-- Left Info / Success Metric -->
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-lg bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-600">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                </svg>
               </div>
-</div>
-</div>
-<!-- BEGIN: Telemetry Events Feed -->
-<div class="bg-white border border-zinc-200 rounded-xl p-5 shadow-sm flex flex-col justify-between" data-purpose="telemetry-events-panel">
-<div>
-<!-- Header -->
-<div class="flex items-center justify-between mb-4 pb-3 border-b border-zinc-100">
-<div class="flex items-center gap-2">
-<svg class="w-4 h-4 text-zinc-700" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
-<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
-<path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
-</svg>
-<h3 class="font-bold text-zinc-900 text-sm">Telemetry Events</h3>
-<span class="px-1.5 py-0.5 text-[10px] font-mono font-bold text-zinc-600 bg-zinc-100 rounded">3 active</span>
-</div>
-<a class="text-[11px] font-mono font-bold text-zinc-700 hover:text-zinc-950 uppercase tracking-wider hover:underline" href="#">VIEW ALL</a>
-</div>
-<!-- Events List -->
-<div class="flex flex-col gap-3">
-<!-- Event 1: Critical -->
-<div class="p-3 bg-zinc-50 border-l-4 border-red-500 border-y border-r border-zinc-200 rounded-r-lg font-mono text-xs">
-<div class="flex items-center justify-between mb-1">
-<div class="flex items-center gap-2">
-<span class="px-1.5 py-0.2 bg-red-100 text-red-700 text-[10px] font-bold rounded">CRIT</span>
-<strong class="font-bold text-zinc-900 text-xs">SYN Flood Signature</strong>
-</div>
-<span class="text-[10px] text-zinc-400 font-mono">45s ago</span>
-</div>
-<div class="text-[11px] text-zinc-500 mb-2">
-                    DDoS vector candidate • <span class="font-semibold text-zinc-700">eth0</span>
-</div>
-<div class="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600">
-<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewbox="0 0 24 24">
-<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-</svg>
-<span>Auto-rate-limited</span>
-</div>
-</div>
-<!-- Event 2: Low Severity -->
-<div class="p-3 bg-zinc-50 border-l-4 border-zinc-400 border-y border-r border-zinc-200 rounded-r-lg font-mono text-xs">
-<div class="flex items-center justify-between mb-1">
-<div class="flex items-center gap-2">
-<span class="px-1.5 py-0.2 bg-zinc-200 text-zinc-700 text-[10px] font-bold rounded">LOW</span>
-<strong class="font-bold text-zinc-900 text-xs">Unusual Port Scan Sweep</strong>
-</div>
-<span class="text-[10px] text-zinc-400 font-mono">3m ago</span>
-</div>
-<div class="text-[11px] text-zinc-500 mb-2">
-                    TCP SYN sequence • <span class="font-semibold text-zinc-700">all-interfaces</span>
-</div>
-<div class="flex items-center gap-1.5 text-[11px] text-zinc-600">
-<svg class="w-3.5 h-3.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
-<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
-<line x1="4" x2="4" y1="22" y2="15"></line>
-</svg>
-<span>Flagged for review</span>
-</div>
-</div>
-<!-- Event 3: Medium Severity -->
-<div class="p-3 bg-zinc-50 border-l-4 border-amber-500 border-y border-r border-zinc-200 rounded-r-lg font-mono text-xs">
-<div class="flex items-center justify-between mb-1">
-<div class="flex items-center gap-2">
-<span class="px-1.5 py-0.2 bg-amber-100 text-amber-800 text-[10px] font-bold rounded">MED</span>
-<strong class="font-bold text-zinc-900 text-xs">DNS Tunneling Entropy</strong>
-</div>
-<span class="text-[10px] text-zinc-400 font-mono">12m ago</span>
-</div>
-<div class="text-[11px] text-zinc-500 mb-2">
-                    Base32 subdomains encoded • <span class="font-semibold text-zinc-700">wg0</span>
-</div>
-<div class="flex items-center gap-1.5 text-[11px] font-semibold text-amber-700">
-<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewbox="0 0 24 24">
-<polygon points="5 3 19 12 5 21 5 3"></polygon>
-</svg>
-<span>Alert dispatched</span>
-</div>
-</div>
-</div>
-</div>
-<!-- Footer indicator in Event card -->
-<div class="pt-3 border-t border-zinc-100 flex items-center justify-between text-xs font-mono">
-<span class="text-zinc-500">eBPF Policy State:</span>
-<span class="flex items-center gap-1.5 text-emerald-600 font-semibold">
-<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-<span>Active Enforcement</span>
-</span>
-</div>
-</div>
-<!-- END: Telemetry Events Feed -->
-</section>
-<!-- END: Main Telemetry & Events Split -->
-</main>
-<!-- END: Main Content Area -->
-<!-- BEGIN: Desktop Footer -->
-<footer class="mt-auto border-t border-zinc-200 bg-white px-6 py-2.5 text-xs font-mono text-zinc-500 flex items-center justify-between flex-shrink-0" data-purpose="status-bar">
-<div class="flex items-center gap-3">
-<span class="font-semibold text-zinc-800">GopherML Network Monitor v2.8.4</span>
-<span>•</span>
-<span>Kernel: Linux 6.8.0-generic</span>
-<span>•</span>
-<span>Arch: amd64</span>
-</div>
-<div class="flex items-center gap-2">
-<span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-<span class="text-zinc-700 font-medium">Worker Node 14/14 Online</span>
-</div>
-</footer>
-<!-- END: Desktop Footer -->
-</div>
-</div>
-</body></html>
+              <div>
+                <div class="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">MIDDLEWARE STATUS</div>
+                <div class="flex items-center gap-1.5 text-emerald-600 font-semibold">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span>99.96% SUCCESS (0.04% Error)</span>
+                </div>
+              </div>
+            </div>
+            <!-- Throughput Metric -->
+            <div class="border-l border-zinc-100 pl-4">
+              <div class="text-[10px] text-zinc-400 uppercase tracking-wider">THROUGHPUT</div>
+              <div class="flex items-baseline gap-2">
+                <span class="text-xl font-bold text-zinc-900 font-mono-numbers">1,842</span>
+                <span class="text-zinc-500 text-xs font-semibold">req/s</span>
+                <span class="text-emerald-600 text-xs font-semibold">Peak: 2.4k/s</span>
+              </div>
+            </div>
+            <!-- Cache Memory Metric -->
+            <div class="border-l border-zinc-100 pl-4">
+              <div class="text-[10px] text-zinc-400 uppercase tracking-wider">CACHE LRU MEMORY</div>
+              <div class="flex items-baseline gap-1.5">
+                <span class="text-xl font-bold text-zinc-900 font-mono-numbers">38.4</span>
+                <span class="text-zinc-500 text-xs font-semibold">MB / 100 MB</span>
+                <span class="text-zinc-400 text-[11px] ml-1">Evictions: 0</span>
+              </div>
+            </div>
+            <!-- ML Engine & Inference Sync -->
+            <div class="border-l border-zinc-100 pl-4 flex items-center justify-between">
+              <div>
+                <div class="text-[10px] text-zinc-400 uppercase tracking-wider">ML ENGINE</div>
+                <div class="font-bold text-zinc-900">Isolation Forest (ONNX)</div>
+                <div class="text-[11px] text-zinc-400">Latency: ~0.38ms</div>
+              </div>
+              <div class="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-50 border border-zinc-200 rounded-md text-[11px] text-zinc-600">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span>0.65 / 0.85 Tiers</span>
+              </div>
+            </div>
+          </div>
+        </section>
+        <!-- END: Top Telemetry Banner -->
+
+        <!-- BEGIN: Core Metric KPI Row -->
+        <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4" data-purpose="metric-kpi-grid">
+          <!-- Card 1: Anomaly Score -->
+          <div class="bg-white border border-zinc-200 rounded-xl p-4 shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[11px] font-mono uppercase font-bold text-zinc-400 tracking-wide">Anomaly Score</span>
+              <span class="px-2 py-0.5 text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded">NOMINAL (ALLOW)</span>
+            </div>
+            <div class="flex items-baseline gap-1 mb-3">
+              <span class="text-3xl font-extrabold text-zinc-900 font-mono">0.14</span>
+              <span class="text-sm font-mono text-zinc-400">/ 1.0</span>
+            </div>
+            <!-- Segmented Gauge Bar matching Decision Engine tiers -->
+            <div class="space-y-1.5">
+              <div class="grid grid-cols-5 gap-1.5">
+                <div class="h-2 rounded bg-emerald-500" title="Normal: < 0.65"></div>
+                <div class="h-2 rounded bg-emerald-500"></div>
+                <div class="h-2 rounded bg-emerald-500"></div>
+                <div class="h-2 rounded bg-amber-200 border border-amber-300" title="Throttle: 0.65 - 0.85"></div>
+                <div class="h-2 rounded bg-red-100 border border-red-200" title="Block: > 0.85"></div>
+              </div>
+              <div class="flex justify-between text-[10px] font-mono text-zinc-400">
+                <span>0.00 (Normal)</span>
+                <span class="text-amber-600 font-medium">0.65 Throttle</span>
+                <span class="text-red-600 font-medium">0.85 Block</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Cache Hit Rate (Replaced Ingest Rate) -->
+          <div class="bg-white border border-zinc-200 rounded-xl p-4 shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[11px] font-mono uppercase font-bold text-zinc-400 tracking-wide">Cache Hit Rate</span>
+              <svg class="w-3.5 h-3.5 text-sky-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+              </svg>
+            </div>
+            <div class="flex items-baseline gap-1 mb-3">
+              <span class="text-3xl font-extrabold text-sky-600 font-mono">78.4%</span>
+              <span class="text-sm font-mono text-zinc-500 font-medium">Hit Ratio</span>
+            </div>
+            <!-- Cache Operations Bar -->
+            <div class="space-y-1 font-mono">
+              <div class="flex justify-between text-[11px] text-zinc-500">
+                <span>Hits: 14,280</span>
+                <span class="text-zinc-600">Misses: 3,920</span>
+              </div>
+              <div class="w-full bg-zinc-100 border border-zinc-200 h-2 rounded-full overflow-hidden">
+                <div class="bg-sky-600 h-full w-[78.4%] rounded-full"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 3: P99 Latency & Scheduler -->
+          <div class="bg-white border border-zinc-200 rounded-xl p-4 shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[11px] font-mono uppercase font-bold text-zinc-400 tracking-wide">p99 Latency</span>
+              <span class="px-1.5 py-0.5 text-[10px] font-mono font-bold text-zinc-600 bg-zinc-100 border border-zinc-200 rounded">p50: 0.45ms</span>
+            </div>
+            <div class="flex items-baseline gap-1 mb-3">
+              <span class="text-3xl font-extrabold text-zinc-900 font-mono">1.42</span>
+              <span class="text-sm font-mono text-zinc-500 font-medium">ms</span>
+            </div>
+            <div class="pt-2 border-t border-zinc-100 flex items-center justify-between text-xs font-mono">
+              <span class="text-emerald-600 font-medium flex items-center">
+                <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+                -0.18ms vs avg
+              </span>
+              <span class="text-zinc-400">Queue: 0 wait</span>
+            </div>
+          </div>
+
+          <!-- Card 4: Mitigation Decisions Flagged -->
+          <div class="bg-white border border-zinc-200 rounded-xl p-4 shadow-sm flex flex-col justify-between">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[11px] font-mono uppercase font-bold text-zinc-400 tracking-wide">Decision Actions</span>
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+            </div>
+            <div class="flex items-baseline gap-2 mb-3">
+              <span class="text-3xl font-extrabold text-zinc-900 font-mono">42</span>
+              <span class="text-sm font-mono text-zinc-500">Mitigations</span>
+            </div>
+            <div class="pt-2 border-t border-zinc-100 flex items-center justify-between text-xs font-mono">
+              <span class="font-bold text-red-600">12 Blocked (403)</span>
+              <span class="text-zinc-300">•</span>
+              <span class="font-bold text-amber-600">30 Throttled (429)</span>
+            </div>
+          </div>
+        </section>
+        <!-- END: Core Metric KPI Row -->
+
+        <!-- BEGIN: Main Telemetry & Events Split -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6" data-purpose="telemetry-detail-split">
+          <!-- Hero Graph (Span 2 Cols) -->
+          <div class="lg:col-span-2 bg-white border border-zinc-200 rounded-xl p-5 shadow-sm flex flex-col justify-between">
+            <!-- Chart Header -->
+            <div class="flex items-start justify-between mb-4">
+              <div>
+                <div class="flex items-center gap-2">
+                  <h2 class="text-base font-bold text-zinc-950">HTTP Traffic Ingress &amp; Real-Time Anomaly Score</h2>
+                  <span class="px-1.5 py-0.5 text-[10px] font-mono font-bold text-zinc-600 bg-zinc-100 border border-zinc-200 rounded">LIVE STREAM</span>
+                </div>
+                <p class="text-xs font-mono text-zinc-500 mt-0.5">Continuous Isolation Forest prediction vs Decision Engine policy bounds (0.65 / 0.85)</p>
+              </div>
+              <!-- Top Indicator Badges -->
+              <div class="flex items-center gap-2 font-mono text-xs">
+                <span class="px-2 py-0.5 text-[11px] font-semibold text-red-600 border border-red-200 bg-red-50 rounded">
+                  BLOCK &gt; 0.85
+                </span>
+                <span class="px-2 py-0.5 text-[11px] font-semibold text-amber-600 border border-amber-200 bg-amber-50 rounded">
+                  THROTTLE &gt; 0.65
+                </span>
+              </div>
+            </div>
+
+            <!-- Chart Canvas Container -->
+            <div class="relative w-full h-64 border border-zinc-200 rounded-lg overflow-hidden bg-zinc-50/30 grid-lines flex flex-col justify-between p-3">
+              <!-- Threshold Lines Annotations -->
+              <!-- Block Level (0.85) -->
+              <div class="absolute top-[22%] left-0 right-0 border-b border-dashed border-red-500 z-10 flex items-center justify-between px-3">
+                <span class="text-[10px] font-mono font-bold text-red-600 tracking-wider bg-white/95 px-1 py-0.5 rounded border border-red-200 shadow-sm">
+                  CRITICAL BLOCK THRESHOLD (0.85)
+                </span>
+                <span class="text-[10px] font-mono text-red-500 font-bold bg-white/90 px-1 rounded">ACTION: 403 FORBIDDEN</span>
+              </div>
+
+              <!-- Rate-Limit Level (0.65) -->
+              <div class="absolute top-[48%] left-0 right-0 border-b border-dashed border-amber-500 z-10 flex items-center justify-between px-3">
+                <span class="text-[10px] font-mono font-bold text-amber-600 tracking-wider bg-white/95 px-1 py-0.5 rounded border border-amber-200 shadow-sm">
+                  RATE-LIMIT THRESHOLD (0.65)
+                </span>
+                <span class="text-[10px] font-mono text-amber-600 font-bold bg-white/90 px-1 rounded">ACTION: 429 THROTTLE</span>
+              </div>
+
+              <!-- SVG Curve Drawing representing anomaly score -->
+              <svg class="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 700 240">
+                <defs>
+                  <linearGradient id="curveGradientLight" x1="0%" x2="0%" y1="0%" y2="100%">
+                    <stop offset="0%" stop-color="#0284c7" stop-opacity="0.18"></stop>
+                    <stop offset="100%" stop-color="#0284c7" stop-opacity="0.0"></stop>
+                  </linearGradient>
+                </defs>
+                <!-- Gradient Fill Area -->
+                <path d="M 0 170 
+                         C 120 160, 200 150, 260 165 
+                         C 320 180, 360 145, 410 130 
+                         C 460 115, 480 180, 520 180 
+                         C 560 180, 590 40, 620 45 
+                         C 650 50, 670 190, 700 130 
+                         L 700 240 L 0 240 Z" fill="url(#curveGradientLight)"></path>
+
+                <!-- Ingress Curve Stroke -->
+                <path d="M 0 170 
+                         C 120 160, 200 150, 260 165 
+                         C 320 180, 360 145, 410 130 
+                         C 460 115, 480 180, 520 180 
+                         C 560 180, 590 40, 620 45 
+                         C 650 50, 670 190, 700 130" fill="none" stroke="#0284c7" stroke-linejoin="round" stroke-width="2.5"></path>
+
+                <!-- Critical Outlier Point Above Threshold -->
+                <circle class="animate-ping" cx="620" cy="45" fill="none" r="9" stroke="#ef4444" stroke-width="2" style="transform-origin: 620px 45px;"></circle>
+                <circle cx="620" cy="45" fill="#ef4444" r="5.5" stroke="#ffffff" stroke-width="2"></circle>
+
+                <!-- Normal Current Stream Point -->
+                <circle cx="700" cy="130" fill="#10b981" r="4.5" stroke="#ffffff" stroke-width="1.5"></circle>
+              </svg>
+
+              <!-- Chart X-Axis Labels -->
+              <div class="mt-auto z-10 flex justify-between text-[11px] font-mono text-zinc-400 pt-2 border-t border-zinc-200">
+                <span>T-15m</span>
+                <span>T-10m</span>
+                <span>T-5m</span>
+                <span class="text-zinc-800 font-bold">Now (Score: 0.14)</span>
+              </div>
+            </div>
+
+            <!-- Graph Legend / Inference Info -->
+            <div class="mt-4 pt-3 border-t border-zinc-100 flex flex-wrap items-center justify-between text-xs font-mono text-zinc-500">
+              <div class="flex items-center gap-4">
+                <div class="flex items-center gap-1.5">
+                  <span class="w-3 h-0.5 bg-sky-600 rounded"></span>
+                  <span class="text-zinc-700 font-medium">Anomaly Score Waveform</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <span class="w-3 h-0.5 bg-amber-500 border-b border-dashed border-amber-600"></span>
+                  <span class="text-zinc-700 font-medium">Throttle Bound (0.65)</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <span class="w-3 h-0.5 bg-red-500 border-b border-dashed border-red-600"></span>
+                  <span class="text-zinc-700 font-medium">Block Bound (0.85)</span>
+                </div>
+              </div>
+              <div class="text-[11px] text-zinc-400">
+                Sliding Windows: 10s &amp; 60s
+              </div>
+            </div>
+          </div>
+
+          <!-- BEGIN: Mitigation & Threat Feed (Replaced L4 packet sniffer) -->
+          <div class="bg-white border border-zinc-200 rounded-xl p-5 shadow-sm flex flex-col justify-between" data-purpose="telemetry-events-panel">
+            <div>
+              <!-- Header -->
+              <div class="flex items-center justify-between mb-4 pb-3 border-b border-zinc-100">
+                <div class="flex items-center gap-2">
+                  <svg class="w-4 h-4 text-zinc-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+                  </svg>
+                  <h3 class="font-bold text-zinc-900 text-sm">Mitigation &amp; Threat Feed</h3>
+                  <span class="px-1.5 py-0.5 text-[10px] font-mono font-bold text-zinc-600 bg-zinc-100 rounded">3 active</span>
+                </div>
+                <a class="text-[11px] font-mono font-bold text-zinc-700 hover:text-zinc-950 uppercase tracking-wider hover:underline" href="#">VIEW ALL</a>
+              </div>
+
+              <!-- Events List -->
+              <div class="flex flex-col gap-3">
+                <!-- Event 1: Critical ML Block -->
+                <div class="p-3 bg-zinc-50 border-l-4 border-red-500 border-y border-r border-zinc-200 rounded-r-lg font-mono text-xs">
+                  <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-2">
+                      <span class="px-1.5 py-0.2 bg-red-100 text-red-700 text-[10px] font-bold rounded">BLOCK</span>
+                      <strong class="font-bold text-zinc-900 text-xs">ML Outlier (Score: 0.92)</strong>
+                    </div>
+                    <span class="text-[10px] text-zinc-400 font-mono">45s ago</span>
+                  </div>
+                  <div class="text-[11px] text-zinc-500 mb-2">
+                    High entropy &amp; latency spike • <span class="font-semibold text-zinc-700">/api/v1/checkout</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 text-[11px] font-semibold text-red-600">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path>
+                    </svg>
+                    <span>IP Auto-Blocked (HTTP 403)</span>
+                  </div>
+                </div>
+
+                <!-- Event 2: Rapid Burst Rate Limit -->
+                <div class="p-3 bg-zinc-50 border-l-4 border-amber-500 border-y border-r border-zinc-200 rounded-r-lg font-mono text-xs">
+                  <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-2">
+                      <span class="px-1.5 py-0.2 bg-amber-100 text-amber-800 text-[10px] font-bold rounded">THROTTLE</span>
+                      <strong class="font-bold text-zinc-900 text-xs">Burst Threshold Exceeded</strong>
+                    </div>
+                    <span class="text-[10px] text-zinc-400 font-mono">3m ago</span>
+                  </div>
+                  <div class="text-[11px] text-zinc-500 mb-2">
+                    68 reqs / 2s (Limit: 50) • <span class="font-semibold text-zinc-700">/auth/login</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 text-[11px] font-semibold text-amber-700">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>Token Bucket Throttled (HTTP 429)</span>
+                  </div>
+                </div>
+
+                <!-- Event 3: Endpoint Abuse -->
+                <div class="p-3 bg-zinc-50 border-l-4 border-zinc-400 border-y border-r border-zinc-200 rounded-r-lg font-mono text-xs">
+                  <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-2">
+                      <span class="px-1.5 py-0.2 bg-zinc-200 text-zinc-700 text-[10px] font-bold rounded">RULES</span>
+                      <strong class="font-bold text-zinc-900 text-xs">Endpoint Abuse Pattern</strong>
+                    </div>
+                    <span class="text-[10px] text-zinc-400 font-mono">11m ago</span>
+                  </div>
+                  <div class="text-[11px] text-zinc-500 mb-2">
+                    Sequential 404 crawler • <span class="font-semibold text-zinc-700">/admin/* scans</span>
+                  </div>
+                  <div class="flex items-center gap-1.5 text-[11px] text-zinc-600">
+                    <svg class="w-3.5 h-3.5 text-zinc-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                    </svg>
+                    <span>Action: Flagged &amp; Slow-Drained</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer indicator in Event card -->
+            <div class="pt-3 border-t border-zinc-100 flex items-center justify-between text-xs font-mono">
+              <span class="text-zinc-500">Decision Engine Policy:</span>
+              <span class="flex items-center gap-1.5 text-emerald-600 font-semibold">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                <span>Active 3-Tier Mitigation</span>
+              </span>
+            </div>
+          </div>
+          <!-- END: Mitigation & Threat Feed -->
+        </section>
+        <!-- END: Main Telemetry & Events Split -->
+      </main>
+      <!-- END: Main Content Area -->
+
+      <!-- BEGIN: Desktop Footer -->
+      <footer class="mt-auto border-t border-zinc-200 bg-white px-6 py-2.5 text-xs font-mono text-zinc-500 flex items-center justify-between flex-shrink-0" data-purpose="status-bar">
+        <div class="flex items-center gap-3">
+          <span class="font-semibold text-zinc-800">turboSH AI Middleware v0.2.0</span>
+          <span>•</span>
+          <span>Upstream: <code class="text-zinc-600">http://localhost:9092</code></span>
+          <span>•</span>
+          <span>Proxy: <code class="text-zinc-600">:8080</code></span>
+          <span>•</span>
+          <span>Internal Metrics: <code class="text-zinc-600">:9090/metrics</code></span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span class="text-zinc-700 font-medium">Cache LRU &amp; ML Inference Synchronized</span>
+        </div>
+      </footer>
+      <!-- END: Desktop Footer -->
+    </div>
+  </div>
+
+  <script data-purpose="tab-interactivity">
+    document.querySelectorAll('[data-purpose="instance-tabs"] button').forEach(button => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('[data-purpose="instance-tabs"] button').forEach(btn => {
+          btn.className = 'px-3 py-1.5 bg-white hover:bg-zinc-100 text-zinc-600 hover:text-zinc-900 rounded-md border border-zinc-200 font-medium transition';
+        });
+        button.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 text-white rounded-md font-medium shadow-sm transition';
+      });
+    });
+  </script>
+
+  <script data-purpose="realtime-dashboard-polling">
+  (function() {
+    'use strict';
+
+    const API_BASE = window.location.origin || 'http://localhost:9090';
+    const API_URL  = API_BASE + '/api/v1/status';
+    const POLL_INTERVAL_MS = 1000;
+
+    const scoreHistory = [];
+    const MAX_HISTORY = 60;
+    let peakRPS = 0;
+    let connected = false;
+
+    // ── Helpers ──
+    function fmt(n) { return n != null ? n.toLocaleString() : '—'; }
+    function fmtBytes(b) {
+      if (b == null) return '—';
+      if (b < 1024) return b + ' B';
+      if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+      return (b / 1048576).toFixed(1) + ' MB';
+    }
+    function fmtMs(ms) { return ms != null ? ms.toFixed(2) : '—'; }
+    function fmtUptime(s) {
+      if (s == null) return '—';
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const sec = Math.floor(s % 60);
+      return (h > 0 ? h + 'h ' : '') + m + 'm ' + sec + 's';
+    }
+    function getTimeAgo(ts) {
+      if (!ts) return '—';
+      const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+      if (diff < 5) return 'just now';
+      if (diff < 60) return diff + 's ago';
+      if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+      return Math.floor(diff / 3600) + 'h ago';
+    }
+    function escapeHtml(s) {
+      if (!s) return '';
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Dashboard Update ──
+    function updateDashboard(data) {
+      connected = true;
+      const total = data.requests.total || 0;
+      const byStatus = data.requests.by_status || {};
+      const errCount = Object.entries(byStatus)
+        .filter(([c]) => parseInt(c) >= 400)
+        .reduce((sum, [, cnt]) => sum + cnt, 0);
+      const successPct = total > 0 ? ((total - errCount) / total * 100).toFixed(2) : '100.00';
+      const errorPct = total > 0 ? (errCount / total * 100).toFixed(2) : '0.00';
+      const rps = data.requests.recent_rps || 0;
+      if (rps > peakRPS) peakRPS = rps;
+
+      // ── Banner Stats ──
+      const banner = document.querySelector('[data-purpose="runtime-telemetry-banner"]');
+      if (banner) {
+        const statusText = banner.querySelector('.text-emerald-600 span:last-child');
+        if (statusText) statusText.textContent = `${successPct}% SUCCESS (${errorPct}% Error)`;
+
+        const cols = banner.querySelectorAll('.grid > div');
+        cols.forEach(col => {
+          const label = col.querySelector('.text-\\[10px\\]');
+          if (!label) return;
+          const text = label.textContent.trim();
+          if (text.includes('THROUGHPUT')) {
+            const val = col.querySelector('.text-xl');
+            if (val) val.textContent = fmt(Math.round(rps));
+            const peakEl = col.querySelector('.text-emerald-600:last-child');
+            if (peakEl) peakEl.textContent = `Peak: ${fmt(Math.round(peakRPS))}/s`;
+          }
+          if (text.includes('CACHE')) {
+            const val = col.querySelector('.text-xl');
+            if (val) val.textContent = fmtBytes(data.cache.current_memory_bytes).replace(/ .*/, '');
+            const suffix = col.querySelector('.text-zinc-500');
+            if (suffix) suffix.textContent = `${fmtBytes(data.cache.current_memory_bytes).replace(/^[\d.]+ /, '')} / ${fmtBytes(data.cache.max_memory_bytes)}`;
+            const evict = col.querySelector('.text-zinc-400:last-child');
+            if (evict) evict.textContent = `Evictions: ${fmt(data.cache.evictions)}`;
+          }
+          if (text.includes('ML')) {
+            const val = col.querySelector('.font-bold.text-zinc-900');
+            if (val) val.textContent = data.ml.model_loaded ? 'Isolation Forest (ONNX)' : 'Static Rule Mode';
+          }
+        });
+      }
+
+      // ── KPI Cards ──
+      const kpiGrid = document.querySelector('[data-purpose="metric-kpi-grid"]');
+      if (kpiGrid) {
+        const cards = kpiGrid.querySelectorAll(':scope > div');
+
+        // Card 1: Anomaly Score
+        if (cards[0]) {
+          const latestScore = data.recent_events.length > 0 ? (data.recent_events[0].score || 0) : 0;
+          const scoreEl = cards[0].querySelector('.text-3xl');
+          if (scoreEl) scoreEl.textContent = latestScore.toFixed(2);
+          const badge = cards[0].querySelector('.px-2');
+          if (badge) {
+            if (latestScore > 0.85) {
+              badge.textContent = 'BLOCKED';
+              badge.className = 'px-2 py-0.5 text-[10px] font-mono font-bold text-red-700 bg-red-50 border border-red-200 rounded';
+            } else if (latestScore > 0.65) {
+              badge.textContent = 'RATE LIMITED';
+              badge.className = 'px-2 py-0.5 text-[10px] font-mono font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded';
+            } else {
+              badge.textContent = 'NOMINAL (ALLOW)';
+              badge.className = 'px-2 py-0.5 text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded';
+            }
+          }
+          scoreHistory.push({ time: Date.now(), score: latestScore, rps: rps });
+          if (scoreHistory.length > MAX_HISTORY) scoreHistory.shift();
+        }
+
+        // Card 2: Cache Hit Rate
+        if (cards[1]) {
+          const hitRate = data.cache.hit_rate || 0;
+          const hrEl = cards[1].querySelector('.text-3xl');
+          if (hrEl) hrEl.textContent = (hitRate * 100).toFixed(1) + '%';
+          const details = cards[1].querySelectorAll('.text-\\[11px\\].text-zinc-500 span, .text-\\[11px\\].text-zinc-500, .text-zinc-600');
+          const hitMissContainer = cards[1].querySelector('.flex.justify-between');
+          if (hitMissContainer) {
+            const spans = hitMissContainer.querySelectorAll('span');
+            if (spans.length >= 2) {
+              spans[0].textContent = `Hits: ${fmt(data.cache.hits)}`;
+              spans[1].textContent = `Misses: ${fmt(data.cache.misses)}`;
+            }
+          }
+          const bar = cards[1].querySelector('.bg-sky-600');
+          if (bar) bar.style.width = (hitRate * 100) + '%';
+        }
+
+        // Card 3: p99 Latency
+        if (cards[2]) {
+          const p99El = cards[2].querySelector('.text-3xl');
+          if (p99El) p99El.textContent = fmtMs(data.requests.p99_latency_ms);
+          const avgBadge = cards[2].querySelector('.px-1\\.5.py-0\\.5');
+          if (avgBadge) avgBadge.textContent = `avg: ${fmtMs(data.requests.avg_latency_ms)}ms`;
+        }
+
+        // Card 4: Decision Actions
+        if (cards[3]) {
+          const totalM = (data.ml.decisions.block || 0) + (data.ml.decisions.rate_limit || 0);
+          const mEl = cards[3].querySelector('.text-3xl');
+          if (mEl) mEl.textContent = fmt(totalM);
+          const bEl = cards[3].querySelector('.text-red-600');
+          if (bEl) bEl.textContent = `${fmt(data.ml.decisions.block || 0)} Blocked (403)`;
+          const tEl = cards[3].querySelector('.text-amber-600');
+          if (tEl) tEl.textContent = `${fmt(data.ml.decisions.rate_limit || 0)} Throttled (429)`;
+        }
+      }
+
+      // ── Sidebar: Scheduler ──
+      const sidebar = document.querySelector('[data-purpose="main-sidebar"]');
+      if (sidebar) {
+        const schedActive = data.scheduler.active || 0;
+        const schedCap = data.scheduler.capacity || 100;
+        const schedWaiting = data.scheduler.waiting || 0;
+        const schedPct = schedCap > 0 ? (schedActive / schedCap * 100) : 0;
+        const schedLabel = sidebar.querySelector('.text-emerald-600.font-bold');
+        if (schedLabel) schedLabel.textContent = `${schedActive} / ${schedCap} SLOTS`;
+        const schedBar = sidebar.querySelector('.bg-emerald-500.h-full');
+        if (schedBar) schedBar.style.width = schedPct + '%';
+        const queueSpan = sidebar.querySelector('.text-\\[10px\\]:first-child');
+        if (queueSpan) queueSpan.textContent = `Queue waiting: ${schedWaiting}`;
+      }
+
+      // ── Events Feed ──
+      const evPanel = document.querySelector('[data-purpose="telemetry-events-panel"]');
+      if (evPanel) {
+        const evList = evPanel.querySelector('.flex.flex-col.gap-3');
+        if (evList && data.recent_events.length > 0) {
+          evList.innerHTML = '';
+          data.recent_events.slice(0, 5).forEach(evt => {
+            const borderColor = evt.type === 'BLOCK' ? 'border-red-500' :
+                                evt.type === 'THROTTLE' ? 'border-amber-500' : 'border-zinc-400';
+            const badgeClass = evt.type === 'BLOCK' ? 'bg-red-100 text-red-700'
+                             : evt.type === 'THROTTLE' ? 'bg-amber-100 text-amber-800'
+                             : 'bg-zinc-200 text-zinc-700';
+            evList.innerHTML += `
+              <div class="p-3 bg-zinc-50 border-l-4 ${borderColor} border-y border-r border-zinc-200 rounded-r-lg font-mono text-xs">
+                <div class="flex items-center justify-between mb-1">
+                  <div class="flex items-center gap-2">
+                    <span class="px-1.5 py-0.2 ${badgeClass} text-[10px] font-bold rounded">${evt.type}</span>
+                    <strong class="font-bold text-zinc-900 text-xs">${escapeHtml(evt.detail)}</strong>
+                  </div>
+                  <span class="text-[10px] text-zinc-400 font-mono">${getTimeAgo(evt.timestamp)}</span>
+                </div>
+                <div class="text-[11px] text-zinc-500 mb-2">
+                  Score: ${evt.score.toFixed(2)} • <span class="font-semibold text-zinc-700">${escapeHtml(evt.path)}</span>
+                </div>
+                <div class="text-[11px] text-zinc-500">HTTP ${evt.status || '—'} → IP ${evt.ip_hash || '—'}</div>
+              </div>`;
+          });
+        } else if (evList && data.recent_events.length === 0) {
+          evList.innerHTML = '<div class="p-4 text-center text-xs font-mono text-zinc-400">No mitigation events yet. Send traffic to generate events.</div>';
+        }
+        const badge = evPanel.querySelector('.text-\\[10px\\].font-mono.font-bold.text-zinc-600');
+        if (badge) badge.textContent = `${data.recent_events.length} active`;
+      }
+
+      // ── Footer ──
+      const footer = document.querySelector('[data-purpose="status-bar"]');
+      if (footer) {
+        const syncEl = footer.querySelector('.font-medium:last-child');
+        if (syncEl) syncEl.textContent = `Uptime: ${fmtUptime(data.uptime_seconds)} • Total: ${fmt(total)} reqs`;
+      }
+
+      // ── Chart ──
+      updateChart();
+      updateConnectionStatus(true);
+    }
+
+    function updateChart() {
+      const section = document.querySelector('[data-purpose="telemetry-detail-split"]');
+      if (!section) return;
+      const svg = section.querySelector('svg');
+      if (!svg || scoreHistory.length < 2) return;
+
+      const viewWidth = 800, viewHeight = 280, padding = 20;
+      const usableW = viewWidth - 2 * padding;
+      const usableH = viewHeight - 2 * padding;
+
+      const points = scoreHistory.map((pt, i) => ({
+        x: padding + (i / (MAX_HISTORY - 1)) * usableW,
+        y: padding + (1 - pt.score) * usableH
+      }));
+
+      let pathD = `M ${points[0].x} ${points[0].y}`;
+      for (let i = 1; i < points.length; i++) {
+        const cp1x = points[i-1].x + (points[i].x - points[i-1].x) * 0.4;
+        const cp2x = points[i].x - (points[i].x - points[i-1].x) * 0.4;
+        pathD += ` C ${cp1x} ${points[i-1].y}, ${cp2x} ${points[i].y}, ${points[i].x} ${points[i].y}`;
+      }
+
+      const waveform = svg.querySelector('path[stroke="#0284c7"]') || svg.querySelector('path[stroke="#06b6d4"]');
+      if (waveform) waveform.setAttribute('d', pathD);
+
+      const area = svg.querySelector('path[fill*="url(#"]');
+      if (area) {
+        const last = points[points.length - 1];
+        area.setAttribute('d', pathD + ` L ${last.x} ${viewHeight - padding} L ${points[0].x} ${viewHeight - padding} Z`);
+      }
+
+      const dot = svg.querySelector('circle[fill="#0284c7"]') || svg.querySelector('circle[fill="#06b6d4"]');
+      if (dot) {
+        const last = points[points.length - 1];
+        dot.setAttribute('cx', last.x);
+        dot.setAttribute('cy', last.y);
+      }
+    }
+
+    function updateConnectionStatus(ok) {
+      const btn = document.querySelector('button[title*="Prometheus"]');
+      if (btn) {
+        const svg = btn.querySelector('svg');
+        if (svg) svg.className.baseVal = ok ? 'w-4 h-4 text-sky-600' : 'w-4 h-4 text-red-500';
+      }
+    }
+
+    async function poll() {
+      try {
+        const resp = await fetch(API_URL, { cache: 'no-store' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
+        updateDashboard(data);
+      } catch (err) {
+        if (connected) console.warn('[dashboard] API unreachable:', err.message);
+        connected = false;
+        updateConnectionStatus(false);
+      }
+    }
+
+    poll();
+    setInterval(poll, POLL_INTERVAL_MS);
+    console.log('[turboSH] Light theme dashboard polling started → ' + API_URL);
+  })();
+  </script>
+</body>
+</html>

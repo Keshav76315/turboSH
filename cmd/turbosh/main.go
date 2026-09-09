@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -33,23 +34,6 @@ func main() {
 	log.Printf("Rate limit: %d tokens, %.1f/s refill", cfg.RateLimitCapacity, cfg.RateLimitRate)
 
 	monitoring.Register()
-
-	// 5.5: Run Prometheus metrics on dedicated internal listener rather than public API router
-	var metricsSrv *http.Server
-	if cfg.MetricsEnabled {
-		metricsMux := http.NewServeMux()
-		metricsMux.Handle("/metrics", promhttp.Handler())
-		metricsSrv = &http.Server{
-			Addr:    cfg.MetricsPort,
-			Handler: metricsMux,
-		}
-		go func() {
-			log.Printf("[monitoring] Internal Prometheus metrics listening on %s/metrics", cfg.MetricsPort)
-			if err := metricsSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				log.Printf("[monitoring] ERROR: Internal metrics server failed: %v", err)
-			}
-		}()
-	}
 
 	rp, err := proxy.New(cfg.BackendURL)
 	if err != nil {
@@ -85,6 +69,43 @@ func main() {
 	proxy.SetupMiddleware(router, components)
 
 	router.NoRoute(rp.Handler())
+
+	// 5.5: Run internal listener for Prometheus metrics + Dashboard API + Dashboard HTML
+	var metricsSrv *http.Server
+	if cfg.MetricsEnabled {
+		metricsMux := http.NewServeMux()
+		metricsMux.Handle("/metrics", promhttp.Handler())
+
+		// Dashboard: Wire real-time JSON API
+		if components.DashboardState != nil {
+			metricsMux.HandleFunc("/api/v1/status", monitoring.DashboardAPIHandler(components.DashboardState))
+			log.Printf("[dashboard] Real-time status API: http://localhost%s/api/v1/status", cfg.MetricsPort)
+		}
+
+		// Dashboard: Serve HTML files from ui/ directory
+		darkHTML := loadDashboardHTML("ui/dark_desktop_ui.html")
+		lightHTML := loadDashboardHTML("ui/light_desktop_ui.html")
+		if darkHTML != nil {
+			metricsMux.HandleFunc("/dashboard", monitoring.DashboardHTMLHandler(darkHTML))
+			metricsMux.HandleFunc("/dashboard/dark", monitoring.DashboardHTMLHandler(darkHTML))
+			log.Printf("[dashboard] Dark UI:  http://localhost%s/dashboard", cfg.MetricsPort)
+		}
+		if lightHTML != nil {
+			metricsMux.HandleFunc("/dashboard/light", monitoring.DashboardHTMLHandler(lightHTML))
+			log.Printf("[dashboard] Light UI: http://localhost%s/dashboard/light", cfg.MetricsPort)
+		}
+
+		metricsSrv = &http.Server{
+			Addr:    cfg.MetricsPort,
+			Handler: metricsMux,
+		}
+		go func() {
+			log.Printf("[monitoring] Internal listener on %s (/metrics, /api/v1/status, /dashboard)", cfg.MetricsPort)
+			if err := metricsSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Printf("[monitoring] ERROR: Internal metrics server failed: %v", err)
+			}
+		}()
+	}
 
 	srv := &http.Server{
 		Addr:    cfg.ListenPort,
@@ -130,4 +151,18 @@ func main() {
 	}
 
 	log.Println("[shutdown] turboSH shutdown complete.")
+}
+
+// loadDashboardHTML loads an HTML file from the given path relative to the current working directory.
+// Returns nil if the file doesn't exist (non-fatal).
+func loadDashboardHTML(relPath string) []byte {
+	// Try CWD first
+	absPath, _ := filepath.Abs(relPath)
+	data, err := os.ReadFile(absPath)
+	if err != nil {
+		log.Printf("[dashboard] Could not load %s: %v (dashboard will not be available at this path)", relPath, err)
+		return nil
+	}
+	log.Printf("[dashboard] Loaded %s (%d bytes)", relPath, len(data))
+	return data
 }

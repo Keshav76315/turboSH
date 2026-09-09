@@ -18,12 +18,14 @@ build/
 .ipynb_checkpoints/
 
 # --- Go ---
+bin/
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
 vendor/
+logs/*.log
 
 # --- Environment ---
 .env
