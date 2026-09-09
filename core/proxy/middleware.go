@@ -220,41 +220,43 @@ func SetupMiddleware(router *gin.Engine, components *Components) {
 			status := c.Writer.Status()
 			ds.RecordRequest(status, latencyMs)
 
-			switch status {
-			case http.StatusTooManyRequests:
+			if status == http.StatusTooManyRequests || status == http.StatusForbidden {
 				ipHash := c.GetString(logging.ContextKeyClientIPHash)
 				if ipHash == "" {
-					ipHash = c.ClientIP()
-				}
-				if len(ipHash) > 8 {
+					ipHash = "unknown"
+				} else if len(ipHash) > 8 {
 					ipHash = ipHash[:8]
 				}
-				ds.RecordEvent(mon.MitigationEvent{
-					Timestamp: time.Now(),
-					Type:      "RATE_LIMIT",
-					IPHash:    ipHash,
-					Path:      c.Request.URL.Path,
-					Score:     0.0,
-					Detail:    "Rate limit exceeded (token bucket / burst)",
-					Status:    status,
-				})
-			case http.StatusForbidden:
-				ipHash := c.GetString(logging.ContextKeyClientIPHash)
-				if ipHash == "" {
-					ipHash = c.ClientIP()
+
+				var score *float64
+				if val, exists := c.Get("anomaly_score"); exists {
+					if s, ok := val.(float64); ok {
+						score = &s
+					}
 				}
-				if len(ipHash) > 8 {
-					ipHash = ipHash[:8]
+
+				switch status {
+				case http.StatusTooManyRequests:
+					ds.RecordEvent(mon.MitigationEvent{
+						Timestamp: time.Now(),
+						Type:      "RATE_LIMIT",
+						IPHash:    ipHash,
+						Path:      c.Request.URL.Path,
+						Score:     score,
+						Detail:    "Rate limit exceeded (token bucket / burst)",
+						Status:    status,
+					})
+				case http.StatusForbidden:
+					ds.RecordEvent(mon.MitigationEvent{
+						Timestamp: time.Now(),
+						Type:      "BLOCK",
+						IPHash:    ipHash,
+						Path:      c.Request.URL.Path,
+						Score:     score,
+						Detail:    "Blocked by security rules / ML",
+						Status:    status,
+					})
 				}
-				ds.RecordEvent(mon.MitigationEvent{
-					Timestamp: time.Now(),
-					Type:      "BLOCK",
-					IPHash:    ipHash,
-					Path:      c.Request.URL.Path,
-					Score:     0.92,
-					Detail:    "Blocked by security rules / ML",
-					Status:    status,
-				})
 			}
 		})
 	}

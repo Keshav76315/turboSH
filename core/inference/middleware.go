@@ -280,6 +280,7 @@ func (mlp *MLProtection) Middleware() gin.HandlerFunc {
 			c.Next() // Fail open to maintain proxy availability
 			return
 		}
+		c.Set("anomaly_score", score)
 
 		// 3. Evaluate Decision
 		prediction := decision.Prediction{

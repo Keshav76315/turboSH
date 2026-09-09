@@ -108,6 +108,21 @@
           <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9m14.2 0c3.9 3.9 3.9 10.3 0 14.2M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5m8.4 0c2.3 2.3 2.3 6.1 0 8.5M12 13a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"></path>
         </svg>
       </div>
+      <!-- Theme Switcher Toggle (Light Mode) -->
+      <button id="theme-toggle-btn" class="flex items-center space-x-1.5 px-2.5 py-1 rounded bg-[#0f1523] border border-[#1b2336] text-amber-300 hover:text-amber-200 hover:border-amber-400/40 font-mono text-xs transition cursor-pointer shadow-sm" title="Switch to Light Theme">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="5"></circle>
+          <line x1="12" y1="1" x2="12" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="23"></line>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+          <line x1="1" y1="12" x2="3" y2="12"></line>
+          <line x1="21" y1="12" x2="23" y2="12"></line>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+        </svg>
+        <span class="text-slate-200 font-medium">Light</span>
+      </button>
     </div>
   </header>
   <!-- END: MainHeader -->
@@ -556,7 +571,7 @@
         </div>
         <div class="flex items-center space-x-2">
           <span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-          <span class="text-slate-400">Cache LRU &amp; ML Inference Synchronized</span>
+          <span class="text-slate-400" data-purpose="sync-indicator">Cache LRU &amp; ML Inference Synchronized</span>
         </div>
       </footer>
       <!-- END: DesktopFooterSummary -->
@@ -761,7 +776,7 @@
                 <span class="text-[10px] text-slate-500">${timeAgo}</span>
               </div>
               <div class="text-[11px] text-slate-400 leading-snug">
-                Score: ${evt.score.toFixed(2)} • <span class="text-slate-300">${escapeHtml(evt.path)}</span>
+                Score: ${evt.score != null && !isNaN(evt.score) ? evt.score.toFixed(2) : 'unknown'} • <span class="text-slate-300">${escapeHtml(evt.path)}</span>
               </div>
               <div class="flex items-center text-[10px] text-slate-400 space-x-1 pt-0.5">
                 <span>HTTP ${evt.status || '—'} → IP ${evt.ip_hash || '—'}</span>
@@ -783,7 +798,7 @@
       const footer = document.querySelector('[data-purpose="app-footer"]');
       if (footer) {
         const uptimeText = `Uptime: ${fmtUptime(data.uptime_seconds)} • Total: ${fmt(total)} reqs`;
-        const syncSpan = footer.querySelector('.text-slate-400:last-child');
+        const syncSpan = footer.querySelector('[data-purpose="sync-indicator"]');
         if (syncSpan) syncSpan.textContent = uptimeText;
       }
 
@@ -894,6 +909,18 @@
         connected = false;
         updateConnectionStatus(false);
       }
+    }
+
+    // ── Theme Toggle ──
+    const themeBtn = document.getElementById('theme-toggle-btn');
+    if (themeBtn) {
+      themeBtn.addEventListener('click', () => {
+        if (window.location.protocol === 'file:') {
+          window.location.href = 'light_desktop_ui.html';
+        } else {
+          window.location.href = '/dashboard/light';
+        }
+      });
     }
 
     // Start polling

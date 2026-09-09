@@ -45,11 +45,6 @@ cleanup() {
     kill "$BACKEND_PID" 2>/dev/null || true
   fi
 
-  # Double check port cleanup
-  lsof -ti:9092 | xargs kill -9 2>/dev/null || true
-  lsof -ti:9090 | xargs kill -9 2>/dev/null || true
-  lsof -ti:8080 | xargs kill -9 2>/dev/null || true
-
   echo -e "${GREEN}[demo] All servers stopped cleanly. Goodbye!${RESET}"
   exit 0
 }
@@ -66,9 +61,9 @@ echo -e "${RESET}"
 for PORT in 9092 8080 9090; do
   PID=$(lsof -ti:$PORT 2>/dev/null || true)
   if [[ -n "$PID" ]]; then
-    echo -e "${YELLOW}[demo] Port :$PORT is occupied by PID $PID. Terminating...${RESET}"
-    kill -9 $PID 2>/dev/null || true
-    sleep 0.5
+    echo -e "${RED}[ERROR] Port :$PORT is already occupied by PID $PID.${RESET}"
+    echo -e "${RED}Please terminate the conflicting process or choose another port before starting the demo.${RESET}"
+    exit 1
   fi
 done
 

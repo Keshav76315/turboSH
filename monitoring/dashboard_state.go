@@ -2,6 +2,7 @@ package monitoring
 
 import (
 	"math"
+	"sort"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -80,7 +81,7 @@ type MitigationEvent struct {
 	Type      string    `json:"type"`     // "BLOCK", "THROTTLE", "RATE_LIMIT", "RULES"
 	IPHash    string    `json:"ip_hash"`  // first 8 chars of HMAC hash
 	Path      string    `json:"path"`     // request path
-	Score     float64   `json:"score"`    // anomaly score (0 if rule-based)
+	Score     *float64  `json:"score"`    // anomaly score (nil if absent / rule-based)
 	Detail    string    `json:"detail"`   // human-readable explanation
 	Status    int       `json:"status"`   // HTTP status code returned (403, 429, etc.)
 }
@@ -278,17 +279,24 @@ func (ds *DashboardState) Snapshot() StatusSnapshot {
 	// Average & p99 latency
 	ds.latencyMu.Lock()
 	count := ds.latencyCount
+	var sorted []float64
+	var avgLatency float64
 	if count > 0 {
-		snap.Requests.AvgLatencyMs = math.Round(ds.latencySum/float64(snap.Requests.Total)*100) / 100
+		avgLatency = math.Round(ds.latencySum/float64(snap.Requests.Total)*100) / 100
 
 		// Compute p99 from ring buffer (simple: sort and pick 99th percentile)
-		sorted := make([]float64, count)
+		sorted = make([]float64, count)
 		if count <= ds.latencyRingCap {
 			copy(sorted, ds.latencies[:count])
 		} else {
 			copy(sorted, ds.latencies)
 		}
-		sortFloat64s(sorted)
+	}
+	ds.latencyMu.Unlock()
+
+	if len(sorted) > 0 {
+		snap.Requests.AvgLatencyMs = avgLatency
+		sort.Float64s(sorted)
 		p99Idx := int(math.Ceil(float64(len(sorted))*0.99)) - 1
 		if p99Idx < 0 {
 			p99Idx = 0
@@ -298,7 +306,6 @@ func (ds *DashboardState) Snapshot() StatusSnapshot {
 		}
 		snap.Requests.P99LatencyMs = math.Round(sorted[p99Idx]*100) / 100
 	}
-	ds.latencyMu.Unlock()
 
 	// RPS (average over last 5 seconds)
 	ds.rpsMu.Lock()
@@ -315,7 +322,7 @@ func (ds *DashboardState) Snapshot() StatusSnapshot {
 		rpsSlots++
 	}
 	if rpsSlots > 0 {
-		snap.Requests.RecentRPS = math.Round(float64(rpsTotal)/float64(rpsSlots)*10) / 10
+		snap.Requests.RecentRPS = math.Round(float64(rpsTotal)/5.0*10) / 10
 	}
 	ds.rpsMu.Unlock()
 
@@ -325,10 +332,9 @@ func (ds *DashboardState) Snapshot() StatusSnapshot {
 		BlockThreshold:     ds.config.BlockThreshold,
 		RateLimitThreshold: ds.config.RateLimitThreshold,
 	}
-	// Read from Prometheus counters
-	snap.ML.Decisions.Allow = getCounterValue(MLAllowsTotal)
-	snap.ML.Decisions.RateLimit = getCounterValue(MLThrottlesTotal)
-	snap.ML.Decisions.Block = getCounterValue(MLBlocksTotal)
+	snap.ML.Decisions.Allow = DashboardAllows.Load()
+	snap.ML.Decisions.RateLimit = DashboardThrottles.Load()
+	snap.ML.Decisions.Block = DashboardBlocks.Load()
 
 	// Rate limiter
 	snap.RateLimiter = RateLimiterSnapshot{
@@ -364,27 +370,4 @@ func (ds *DashboardState) Snapshot() StatusSnapshot {
 	}
 
 	return snap
-}
-
-// sortFloat64s sorts a slice of float64 in ascending order (insertion sort for small N).
-func sortFloat64s(a []float64) {
-	for i := 1; i < len(a); i++ {
-		key := a[i]
-		j := i - 1
-		for j >= 0 && a[j] > key {
-			a[j+1] = a[j]
-			j--
-		}
-		a[j+1] = key
-	}
-}
-
-// getCounterValue reads the current value of a Prometheus counter.
-// Returns 0 if the counter is nil.
-func getCounterValue(_ interface{ Inc() }) int64 {
-	// We can't directly read a Prometheus counter value without reflection
-	// or the testutil package. Instead, we'll track our own atomic counters
-	// alongside the Prometheus ones. For now, return 0 and use the
-	// dashboard state's own event counters.
-	return 0
 }

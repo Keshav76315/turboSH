@@ -159,7 +159,7 @@
             <div class="bg-emerald-500 h-full w-[24%] rounded-full"></div>
           </div>
           <div class="flex items-center justify-between text-[10px] font-mono text-zinc-500">
-            <span>Queue waiting: 0</span>
+            <span data-purpose="queue-waiting">Queue waiting: 0</span>
             <span class="text-zinc-700 font-medium">Timeout: 2s</span>
           </div>
         </div>
@@ -214,6 +214,13 @@
             <svg class="w-4 h-4 text-sky-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9M19.1 4.9c3.9 3.9 3.9 10.3 0 14.2M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5M16.2 7.7c2.3 2.3 2.3 6.1 0 8.5M12 12h.01"></path>
             </svg>
+          </button>
+          <!-- Theme Switcher Toggle (Dark Mode) -->
+          <button id="theme-toggle-btn" class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white hover:bg-zinc-100 text-zinc-700 hover:text-zinc-950 border border-zinc-200 rounded-md font-mono text-xs transition cursor-pointer shadow-sm" title="Switch to Dark Theme">
+            <svg class="w-3.5 h-3.5 text-indigo-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+            </svg>
+            <span class="font-medium">Dark</span>
           </button>
         </div>
       </header>
@@ -439,7 +446,7 @@
                 <circle cx="620" cy="45" fill="#ef4444" r="5.5" stroke="#ffffff" stroke-width="2"></circle>
 
                 <!-- Normal Current Stream Point -->
-                <circle cx="700" cy="130" fill="#10b981" r="4.5" stroke="#ffffff" stroke-width="1.5"></circle>
+                <circle data-purpose="current-point" cx="700" cy="130" fill="#10b981" r="4.5" stroke="#ffffff" stroke-width="1.5"></circle>
               </svg>
 
               <!-- Chart X-Axis Labels -->
@@ -761,7 +768,7 @@
         if (schedLabel) schedLabel.textContent = `${schedActive} / ${schedCap} SLOTS`;
         const schedBar = sidebar.querySelector('.bg-emerald-500.h-full');
         if (schedBar) schedBar.style.width = schedPct + '%';
-        const queueSpan = sidebar.querySelector('.text-\\[10px\\]:first-child');
+        const queueSpan = sidebar.querySelector('[data-purpose="queue-waiting"]');
         if (queueSpan) queueSpan.textContent = `Queue waiting: ${schedWaiting}`;
       }
 
@@ -787,7 +794,7 @@
                   <span class="text-[10px] text-zinc-400 font-mono">${getTimeAgo(evt.timestamp)}</span>
                 </div>
                 <div class="text-[11px] text-zinc-500 mb-2">
-                  Score: ${evt.score.toFixed(2)} • <span class="font-semibold text-zinc-700">${escapeHtml(evt.path)}</span>
+                  Score: ${evt.score != null && !isNaN(evt.score) ? evt.score.toFixed(2) : 'unknown'} • <span class="font-semibold text-zinc-700">${escapeHtml(evt.path)}</span>
                 </div>
                 <div class="text-[11px] text-zinc-500">HTTP ${evt.status || '—'} → IP ${evt.ip_hash || '—'}</div>
               </div>`;
@@ -817,7 +824,7 @@
       const svg = section.querySelector('svg');
       if (!svg || scoreHistory.length < 2) return;
 
-      const viewWidth = 800, viewHeight = 280, padding = 20;
+      const viewWidth = 700, viewHeight = 240, padding = 20;
       const usableW = viewWidth - 2 * padding;
       const usableH = viewHeight - 2 * padding;
 
@@ -842,7 +849,7 @@
         area.setAttribute('d', pathD + ` L ${last.x} ${viewHeight - padding} L ${points[0].x} ${viewHeight - padding} Z`);
       }
 
-      const dot = svg.querySelector('circle[fill="#0284c7"]') || svg.querySelector('circle[fill="#06b6d4"]');
+      const dot = svg.querySelector('[data-purpose="current-point"]') || svg.querySelector('circle[fill="#10b981"]') || svg.querySelector('circle[fill="#0284c7"]');
       if (dot) {
         const last = points[points.length - 1];
         dot.setAttribute('cx', last.x);
@@ -869,6 +876,18 @@
         connected = false;
         updateConnectionStatus(false);
       }
+    }
+
+    // ── Theme Toggle ──
+    const themeBtn = document.getElementById('theme-toggle-btn');
+    if (themeBtn) {
+      themeBtn.addEventListener('click', () => {
+        if (window.location.protocol === 'file:') {
+          window.location.href = 'dark_desktop_ui.html';
+        } else {
+          window.location.href = '/dashboard';
+        }
+      });
     }
 
     poll();

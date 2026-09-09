@@ -35,22 +35,12 @@ func RecordDashboardMLAllow() {
 // DashboardAPIHandler returns an HTTP handler that serves the /api/v1/status endpoint.
 func DashboardAPIHandler(ds *DashboardState) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// CORS for standalone HTML file opened from file://
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
 
 		snap := ds.Snapshot()
-
-		// Override ML decision counts from our dashboard-specific atomic counters
-		snap.ML.Decisions.Allow = DashboardAllows.Load()
-		snap.ML.Decisions.RateLimit = DashboardThrottles.Load()
-		snap.ML.Decisions.Block = DashboardBlocks.Load()
 
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
