@@ -37,7 +37,7 @@ The demo runs three isolated network layers:
                       +-------------------------------------------------------------+
                                      |                               |
                         HTTP Requests|                  Live Polling | (Every 1s)
-                        (Normal/Burst|                  & Web UI     |
+                        Normal/Burst|                  & Web UI     |
                                      v                               v
                       +-----------------------------+ +-----------------------------+
                       |    turboSH Reverse Proxy    | |    turboSH Internal Server  |
