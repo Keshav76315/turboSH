@@ -14,12 +14,11 @@ Your job is to redesign the TurboSH user experience around the real system archi
 ## Core Objective
 Turn TurboSH into a credible, polished, competition-ready monitoring and control product that makes the operational story immediately understandable:
 
-- traffic enters the system
-- requests are controlled and routed
-- cache hits return quickly
-- cache misses move through logging and feature extraction
-- ML analyzes behavior
-- the decision engine allows, rate limits, or blocks requests
+- traffic enters the system and metrics/identity are established
+- scheduler controls concurrency and logging captures admitted requests
+- rate limiter and traffic rules enforce baseline thresholds
+- ML inference scores features in real time to allow, rate limit, or block
+- cache serves allowed responses on hit or forwards cache misses to the proxy
 - backend traffic is observable and understandable
 
 ## Must-Read Context Before Any UI Work
@@ -53,7 +52,7 @@ The product narrative is not simply "AI cybersecurity dashboard."
 
 It is:
 
-TRAFFIC → CONTROL → CACHE → OBSERVATION → FEATURES → ML DETECTION → DECISION → BACKEND
+Dashboard Recorder → Metrics → Client Identity → Scheduler → Traffic Logger → RateLimiter → TrafficRules → ML Inference → Cache → Proxy
 
 The interface must help a user understand this without reading source code.
 
@@ -122,7 +121,7 @@ The UI must prominently communicate:
 ## Critical Constraints
 Do not do the following:
 - fabricate data such as fake request counts, anomaly scores, latency values, throughput, or model accuracy
-- imply all traffic goes through ML when the cache path exists
+- imply cache precedes ML evaluation when ML protects all incoming traffic before cache lookup
 - create a generic metric-card dashboard with rows of identical widgets
 - use decorative chart styling or rainbow series
 - overuse pills, glows, and large AI iconography
@@ -165,9 +164,9 @@ For a live demo or hackathon presentation, make the story obvious in seconds.
 
 Preferred sequence:
 1. normal traffic enters
-2. traffic passes through TurboSH
-3. cache hits return immediately
-4. cache misses flow into feature extraction and ML
+2. traffic passes through TurboSH scheduler and traffic logger
+3. ML inference and rules evaluate requests in real time
+4. allowed requests hit the cache or proxy to origin
 5. anomaly triggers appear
 6. decision engine blocks or rate limits suspicious traffic
 7. dashboard updates in a calm, readable way
@@ -207,8 +206,8 @@ Before finalizing the design, verify:
 
 ## Review Questions to Ask Before Concluding
 - Does the screen explain the real TurboSH pipeline at a glance?
-- Does it clearly show the cache branch versus the ML path?
-- Is the ML decision path visually and semantically distinct from the cache hit path?
+- Does it clearly show that ML evaluation occurs before the cache stage?
+- Is the upstream security evaluation visually and semantically distinct from the downstream cache lookup and backend proxying?
 - Does the design feel like infrastructure software rather than a generic AI card dashboard?
 - Are the metrics based on actual repo behavior and available telemetry?
 - Would a judge understand what TurboSH is doing without the presenter narrating every section?

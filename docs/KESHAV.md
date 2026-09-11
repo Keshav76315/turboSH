@@ -244,4 +244,4 @@ Configurable at runtime via `TURBOSH_BLOCK_THRESHOLD` and `TURBOSH_RATE_LIMIT_TH
 
 - **Keshav owns:** `/core/proxy/`, `/core/scheduler/`, `/core/security/`, `/core/inference/`, `/core/decision/`, `/ml/`, `/models/`
 - **Anzal owns:** `/core/cache/`, `/pipeline/`, `/monitoring/`, `/ui/`, `/datasets/`, `/notebooks/`, `/docs/`
-- Shared interaction occurs via well-defined Go interfaces (`RequestFeatures`, `DashboardState`, `Cache`, `Scheduler`).
+- Shared interaction occurs via well-defined Go shared types and interfaces (`RequestFeatures`, `DashboardState`, `Cache`, `Scheduler`).

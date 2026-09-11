@@ -48,7 +48,7 @@ Computed from request sliding windows by `pipeline/feature_extraction/feature_ex
 | :---: | :------ | :--- | :---- | :---------- |
 | 0 | `requests_per_ip_10s` | float32 / int | $\ge 0$ | Total requests from this client IP in the last 10 seconds |
 | 1 | `requests_per_ip_60s` | float32 / int | $\ge 0$ | Total requests from this client IP in the last 60 seconds |
-| 2 | `endpoint_entropy` | float32 | $[0.0, 1.0]$ | Normalized Shannon entropy of paths accessed: $H / \log_2(N)$ |
+| 2 | `endpoint_entropy` | float32 | $[0.0, 1.0]$ | Normalized Shannon entropy of paths accessed: $H / \log_2(N)$ ($0.0$ when $N \le 1$) |
 | 3 | `latency_spike` | float32 / int | $0$ or $1$ | Indicator: $1$ if max latency $> 1.5\times$ avg and $> 100\text{ ms}$, else $0$ |
 | 4 | `error_rate` | float32 | $[0.0, 1.0]$ | Ratio of 4xx and 5xx status codes in the active 60s window |
 | 5 | `request_variance` | float32 | $\ge 0$ | Variance of inter-arrival durations between consecutive requests |

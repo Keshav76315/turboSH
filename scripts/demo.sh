@@ -179,7 +179,7 @@ while true; do
   NORMAL_PIDS=()
   for ((i=0; i<CONCURRENT_NORMAL; i++)); do
     EP="${ENDPOINTS[$RANDOM % ${#ENDPOINTS[@]}]}"
-    curl -s -o /dev/null -w "%{http_code}" "http://localhost:8080$EP" >/dev/null 2>&1 &
+    curl -s -m 2 -o /dev/null -w "%{http_code}" "http://localhost:8080$EP" >/dev/null 2>&1 &
     NORMAL_PIDS+=("$!")
     TOTAL_SENT=$((TOTAL_SENT + 1))
   done
@@ -187,7 +187,7 @@ while true; do
 
   CACHE_PIDS=()
   for ((i=0; i<CONCURRENT_CACHE; i++)); do
-    curl -s -o /dev/null -w "%{http_code}" "http://localhost:8080/api/static/cached-catalog" >/dev/null 2>&1 &
+    curl -s -m 2 -o /dev/null -w "%{http_code}" "http://localhost:8080/api/static/cached-catalog" >/dev/null 2>&1 &
     CACHE_PIDS+=("$!")
     TOTAL_SENT=$((TOTAL_SENT + 1))
   done
@@ -198,7 +198,7 @@ while true; do
     echo -e "  ${YELLOW}⚡ SIMULATING HIGH-VOLUME BURST (${TOTAL_SENT} total reqs) -> ${CONCURRENT_BURST} concurrent hits on /api/login ...${RESET}"
     BURST_PIDS=()
     for ((b=0; b<CONCURRENT_BURST; b++)); do
-      curl -s -o /dev/null -w "%{http_code}" "http://localhost:8080/api/login" >/dev/null 2>&1 &
+      curl -s -m 2 -o /dev/null -w "%{http_code}" "http://localhost:8080/api/login" >/dev/null 2>&1 &
       BURST_PIDS+=("$!")
       TOTAL_SENT=$((TOTAL_SENT + 1))
     done
@@ -207,7 +207,7 @@ while true; do
   fi
 
   # Query latest dashboard stats snapshot to display in terminal.
-  STATS=$(curl -s "http://localhost:9090/api/v1/status" 2>/dev/null || true)
+  STATS=$(curl -s -m 2 "http://localhost:9090/api/v1/status" 2>/dev/null || true)
   if [[ -n "$STATS" ]]; then
     RPS=$(echo "$STATS" | grep -o '"recent_rps":[0-9.]*' | cut -d: -f2 || echo "0")
     HITS=$(echo "$STATS" | grep -o '"hits":[0-9]*' | head -1 | cut -d: -f2 || echo "0")

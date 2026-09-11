@@ -68,10 +68,11 @@ def parse_timestamp(ts_str: str) -> datetime:
 def compute_entropy(endpoint_counts: Dict[str, int]) -> float:
     """
     Compute normalized Shannon entropy of endpoint distribution.
-    Returns a value between 0.0 (single endpoint) and 1.0 (uniform distribution).
+    Returns a value between 0.0 (single endpoint or N <= 1) and 1.0 (uniform distribution).
+    Returns 0.0 when N <= 1.
     """
     total = sum(endpoint_counts.values())
-    if total == 0:
+    if total <= 1:
         return 0.0
 
     non_zero = [count for count in endpoint_counts.values() if count > 0]

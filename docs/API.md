@@ -173,7 +173,7 @@ Returns standard Prometheus-formatted metrics:
 GET http://localhost:9090/api/v1/status
 ```
 
-Returns a compact, thread-safe JSON snapshot consumed by the frontend dashboards every 1,000 ms. Includes CORS headers (`Access-Control-Allow-Origin: *`).
+Returns a compact, thread-safe JSON snapshot consumed by the frontend dashboards every 1,000 ms. Wildcard CORS is omitted as same-origin access from the administrative dashboard on `:9090` is sufficient.
 
 **Response Schema:**
 

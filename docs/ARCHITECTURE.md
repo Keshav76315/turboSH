@@ -63,7 +63,7 @@ The middleware pipeline is assembled in [`core/proxy/middleware.go`](../core/pro
 1. **ML Inference Precedes Cache:**
    Evaluating ML anomaly detection *before* the cache ensures that repeated request bursts, credential stuffing, and scraping attacks cannot hide behind cache hits. Every incoming request is subjected to behavioral security analysis.
 2. **Traffic Logger Wraps Downstream Handlers:**
-   The Traffic Logger middleware wraps all downstream execution. This ensures that *all* traffic — cache hits, normal origin responses, token-bucket throttles, and ML-blocked requests — is captured in `logs/traffic.jsonl` and fed back to ML latency ring buffers in real time.
+   The Traffic Logger middleware wraps all downstream execution. This ensures that downstream requests admitted by the Scheduler — cache hits, normal origin responses, token-bucket throttles, and ML-blocked requests (excluding scheduler-generated 503 queue timeout rejections) — are captured in `logs/traffic.jsonl` and fed back to ML latency ring buffers in real time.
 3. **Canonical Client Identity Established Early:**
    IP extraction resolves trusted reverse proxies (`TURBOSH_TRUSTED_PROXIES`) and applies HMAC-SHA-256 salting before any rate limiter or ML component runs, guaranteeing that all layers reference the exact same client identity.
 
@@ -280,7 +280,7 @@ Full-stack observability isolated on administrative port `:9090`.
 | :--- | :--- | :--- |
 | **Reverse Proxy** | Go (`net/http`, `gin-gonic/gin`) | Low overhead, predictable garbage collection, high concurrency |
 | **Concurrency Control** | Go buffered channels | Non-blocking semaphore pattern with zero deadlocks |
-| **Cache** | In-memory doubly linked list + hashmap | $O(1)$ read/write, zero external dependencies |
+| **Cache** | In-memory doubly linked list + hashmap (`golang.org/x/sync/singleflight`) | $O(1)$ read/write with singleflight stampede collapse |
 | **Traffic Logging** | Go buffered I/O with HMAC-SHA-256 | High-throughput logging without disk thrashing |
 | **Feature Extraction** | Go (real-time) & Python (batch) | Mathematically unified sliding window algorithms |
 | **ML Training** | Python (`scikit-learn`) | Rapid experimentation with Isolation Forest & GridSearchCV |

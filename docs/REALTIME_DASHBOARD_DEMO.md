@@ -104,7 +104,7 @@ A thread-safe, lock-free/low-contention aggregator that holds the live state of 
 
 ### B. Status API & UI Server: `monitoring/dashboard_api.go`
 - `GET /api/v1/status`: Returns the complete metrics snapshot as a compact JSON object.
-- Includes CORS headers (`Access-Control-Allow-Origin: *`) to allow opening the HTML file directly from disk (`file://`) or via HTTP.
+- Wildcard CORS is omitted as same-origin access from the administrative dashboard on `:9090` is sufficient.
 - Embedded HTML delivery (`/dashboard` for dark theme, `/dashboard/light` for light theme).
 
 ### C. Pipeline Middleware Hooks: `core/proxy/middleware.go`
