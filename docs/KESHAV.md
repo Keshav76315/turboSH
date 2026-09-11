@@ -10,21 +10,21 @@ The system acts as an intelligent middleware layer between clients and backend s
 
 **Your responsibilities include:**
 
-- Backend infrastructure algorithms
-- Machine learning model training
-- ML inference integration
-- System decision logic
-- Observability and metrics
+- Backend infrastructure algorithms & reverse proxy architecture
+- Concurrency scheduling and queue management
+- Rule-based traffic control (token-bucket rate limiting, burst & endpoint abuse rules)
+- Machine learning model training and hyperparameter optimization
+- Real-time in-process ONNX inference engine in Go
+- Decision engine mitigation logic
+- Containerization and multi-architecture Docker deployment
 
-**You must work in coordination with Anzal**, who is responsible for:
+**You work in close coordination with Anzal**, who is responsible for:
 
-- Traffic logging
-- Data pipelines
-- Feature engineering
-- Dataset generation
-- Exploratory analysis
-
-Your systems will consume the processed features produced by Anzal.
+- High-speed LRU response caching with TTL & singleflight stampede collapse
+- Traffic logging & canonical HMAC-SHA-256 IP extraction
+- Feature extraction pipelines & CSV dataset generation
+- Exploratory data analysis & attack profiling
+- Full-stack observability (Prometheus metrics & Real-Time Dashboard UI)
 
 ---
 
@@ -37,376 +37,211 @@ Client
   ↓
 Reverse Proxy (Keshav)
   ↓
-Scheduler / Rate Limiter (Keshav)
+Dashboard Telemetry Recorder (Anzal)
   ↓
-Cache Layer (Keshav + Anzal)
+Prometheus Metrics (Anzal)
   ↓
-Traffic Logger (Anzal)
+Canonical Client Identity & IP Hasher (Anzal)
   ↓
-Feature Extraction (Anzal)
+Scheduler / Concurrency Control (Keshav)
   ↓
-ML Inference Engine (Keshav)
+Traffic Logger & ML Response Feedback (Anzal)
   ↓
-Decision Engine (Keshav)
+Rate Limiter: Token Bucket (Keshav)
   ↓
-Backend Server
+Traffic Rules: Burst & Abuse Detection (Keshav)
+  ↓
+Real-Time ML Inference: In-Process ONNX (Keshav)
+  ↓
+Decision Engine: Block / Throttle / Allow (Keshav)
+  ↓
+LRU Cache & Stampede Collapse (Anzal)
+  ↓ (on cache miss)
+Backend Origin Server
 ```
 
 **Your systems operate primarily in:**
 
-- `/core`
-- `/ml`
-- `/models`
+- `/core/proxy/`
+- `/core/scheduler/`
+- `/core/security/`
+- `/core/inference/`
+- `/core/decision/`
+- `/ml/`
+- `/models/`
 
 **Anzal operates mainly in:**
 
-- `/pipeline`
-- `/datasets`
-- `/notebooks`
+- `/core/cache/`
+- `/pipeline/`
+- `/monitoring/`
+- `/ui/`
+- `/datasets/`
+- `/notebooks/`
 
 ---
 
 ## Part 1 — Reverse Proxy Middleware
 
-You will build the primary middleware server responsible for handling client traffic.
+You built the primary middleware server responsible for handling client traffic.
 
 **Responsibilities:**
 
-- Request routing
-- Concurrency management
-- Forwarding requests to backend services
+- Request routing and connection pooling
+- Concurrency management and middleware assembly
+- Upstream `Host` header rewrite (`req.Host = target.Host`)
+- Forwarding requests to backend services via `httputil.ReverseProxy`
+- Graceful shutdown handling (`SIGINT`/`SIGTERM`) and resource lifecycle management
 
-**Recommended libraries:**
+**Libraries:**
 
 - `net/http`
-- `httputil.ReverseProxy`
-- `gin-gonic/gin`
+- `net/http/httputil`
+- `github.com/gin-gonic/gin`
 
 **Deliverables:**
 
 - `/core/proxy/proxy.go`
-
-**Capabilities:**
-
-- Concurrent request handling
-- Request forwarding
-- Logging hooks for the data pipeline
+- `/core/proxy/middleware.go`
+- `/core/proxy/proxy_test.go`
+- `/core/proxy/components_test.go`
 
 ---
 
 ## Part 2 — Request Scheduler
 
-Build the traffic scheduling system to control load on the backend.
+Controls load on the backend server via bounded concurrency.
 
-**Algorithms to implement:**
+**Architecture:**
 
-- Request queue
-- Priority scheduling
-- Burst detection
-- Rate limiting
-
-**Example flow:**
-
-```
-incoming request
-      ↓
-scheduler queue
-      ↓
-allowed request
-```
+- **Semaphore-based Concurrency Limiter** (`core/scheduler/scheduler.go`)
+- Bounded channel queue capacity (`MaxConcurrent`, default 100)
+- Configurable request wait timeout (`QueueTimeout`, default 10s)
+- Fast-failure HTTP 503 (`Service Unavailable`) on queue saturation
+- Live queue telemetry: `ActiveCount()` and `WaitingCount()` exposed to Prometheus gauges and the real-time dashboard
 
 **Deliverables:**
 
 - `/core/scheduler/scheduler.go`
-- `/core/scheduler/queue.go`
-
-**Goals:**
-
-- Prevent server overload
-- Smooth traffic spikes
-- Maintain fairness across clients
 
 ---
 
 ## Part 3 — Traffic Control Algorithms
 
-Implement rule‑based protections that function even if ML is disabled.
+Rule‑based protections that function deterministically even when ML is disabled or warming up.
 
-**Examples:**
+**Components:**
 
-| Rule                     | Behavior                                 |
-| ------------------------ | ---------------------------------------- |
-| Rate limiting            | `requests_per_ip > threshold` → throttle |
-| Burst detection          | Sudden traffic spike → slow requests     |
-| Endpoint abuse detection | Excessive requests to same endpoint      |
+| Rule | Behavior | Implementation |
+| :--- | :--- | :--- |
+| **Rate Limiting** | Token-bucket per client IP (`RateLimitCapacity`, `RateLimitRate`) | `core/security/rate_limiter.go` |
+| **Burst Detection** | Sliding-window threshold within configurable duration (`BurstThreshold`, `BurstWindow`) | `core/security/traffic_rules.go` |
+| **Endpoint Abuse** | Detects excessive requests targeted at a single endpoint per IP (`EndpointAbuseThreshold`, `EndpointAbuseWindow`) | `core/security/traffic_rules.go` |
+
+Both security modules feature background cleanup managers (`StartCleanupManager`) that periodically evict inactive client IPs to prevent unbounded memory growth.
 
 **Deliverables:**
 
 - `/core/security/rate_limiter.go`
 - `/core/security/traffic_rules.go`
+- `/core/security/security_test.go`
 
 ---
 
-## Part 4 — Cache Management
+## Part 4 — Cache Management Integration
 
-Integrate the cache layer into the request pipeline.
+Integrates the in-memory response caching layer built by Anzal into the middleware pipeline.
 
-**The cache system should:**
+**Characteristics:**
 
-- Store frequently requested responses
-- Reduce backend load
-- Track hit/miss statistics
-
-**Cache type:** LRU with TTL
+- Placed downstream of ML Inference so all incoming requests are evaluated by security models before cache short-circuiting
+- Intercepts GET/HEAD requests, serving hits with `X-Cache: HIT` without touching the backend
+- Request collapsing via `singleflight` prevents backend stampedes when popular keys expire
 
 **Deliverables:**
 
-- `/core/cache/cache_manager.go`
+- `/core/cache/` (owned by Anzal; integrated in `/core/proxy/middleware.go`)
 
 ---
 
 ## Part 5 — Metrics and Observability
 
-Implement monitoring infrastructure.
+Prometheus instrumentation and administrative isolation.
 
-**Metrics to expose:**
+**Prometheus Metrics:**
 
-- Request throughput
-- Scheduler queue length
-- Cache hit rate
-- Anomaly detection events
+- `turbosh_requests_total{method, status}`: Request counter
+- `turbosh_request_latency_ms{method}`: Sub-millisecond latency distribution histogram
+- `turbosh_scheduler_active_requests`: Active concurrent request gauge
+- `turbosh_scheduler_waiting_requests`: Queued request gauge
+- `turbosh_scheduler_capacity`: Maximum concurrency capacity gauge
+- `turbosh_cache_operations_total{result="hit"|"miss"}`: Cache efficiency counter
+- `turbosh_anomaly_alerts_total{action="block"|"rate_limit"|"allow"}`: ML threat counter
 
-**Expose endpoint:** `/metrics`
-
-**Use:** Prometheus client library
-
-**Deliverables:**
-
-- `/monitoring/metrics.go`
-
-Metrics will be visualized using Grafana dashboards.
+**Port Isolation:**
+- Metrics (`/metrics`), live status (`/api/v1/status`), and the web dashboard (`/dashboard`) are hosted on an isolated internal administrative port (`:9090`, configurable via `TURBOSH_METRICS_PORT`), distinct from the public proxy port (`:8080`).
 
 ---
 
 ## Part 6 — Machine Learning Model Lifecycle
 
-You are responsible for training, evaluating, and deploying the ML models.
+Responsible for training, evaluating, and deploying the anomaly detection models.
 
-Input data will come from Anzal's feature pipeline.
+### 6-Dimensional Feature Vector
 
-**Expected feature format:**
+The ML models consume 6 normalized behavioral features:
 
-| Feature            |
-| ------------------ |
-| `timestamp`        |
-| `ip_hash`          |
-| `endpoint_entropy` |
-| `request_rate_10s` |
-| `request_rate_60s` |
-| `error_rate`       |
-| `latency_spike`    |
+| Index | Feature | Range | Description |
+| :---: | :------ | :---- | :---------- |
+| 0 | `requests_per_ip_10s` | $\ge 0$ | Request count in the last 10s |
+| 1 | `requests_per_ip_60s` | $\ge 0$ | Request count in the last 60s |
+| 2 | `endpoint_entropy` | $[0.0, 1.0]$ | Normalized Shannon entropy of endpoints |
+| 3 | `latency_spike` | `0.0` or `1.0` | Max latency $> 1.5\times$ avg and $> 100\text{ ms}$ |
+| 4 | `error_rate` | $[0.0, 1.0]$ | Ratio of 4xx/5xx responses |
+| 5 | `request_variance` | $\ge 0$ | Variance of request inter-arrival times |
 
-### ML Model Development
+### Model Training & Selection
 
-Train anomaly detection models.
+- **Synthetic Generator:** `ml/data/generate_synthetic_data.py` (CLI flags `--output`, `--num-normal`, `--num-attack`)
+- **GridSearchCV:** `ml/training/train_model.py` across Isolation Forest, One-Class SVM, and Local Outlier Factor (LOF)
+- **Winner:** **Isolation Forest** (`n_estimators=200`, `max_samples=256`, `contamination=0.091`), achieving Validation F1 ~0.983, Detection Rate 91.2%, and False Positive Rate 3.3%.
+- **Report:** `docs/model_evaluation_report.md`
+- **Model Export:** `ml/export/export_onnx.py` → `models/anomaly_model.onnx`
 
-**Recommended models:**
+### Real-Time In-Process Inference Engine
 
-- Isolation Forest
-- One‑Class SVM
-- Local Outlier Factor
+turboSH embeds the ONNX Runtime directly into the Go middleware process using CGO bindings (`yalue/onnxruntime_go`):
 
-**Optional advanced:**
-
-- LSTM Autoencoder
-
-**Deliverables:**
-
-- `/ml/train_model.py`
-- `/ml/evaluate_model.py`
-
-### Model Evaluation
-
-Evaluate model performance using:
-
-- Precision
-- Recall
-- F1 Score
-- ROC-AUC
-
-**Testing datasets will include:**
-
-- Normal traffic
-- Simulated DDoS attacks
-- Endpoint scanning
-- Brute force login attempts
-
-**Deliverable:** `docs/model_evaluation_report.md`
-
-### Model Export
-
-Export the trained model to a deployable format.
-
-- **Preferred format:** ONNX
-- **Output location:** `/models/anomaly_model.onnx`
-
-This model will be loaded during runtime.
-
-### Real-Time Inference Engine
-
-Integrate ML predictions into the system.
-
-**Two possible architectures:**
-
-| Option | Approach                                                  |
-| ------ | --------------------------------------------------------- |
-| 1      | Local Python inference service (FastAPI, `POST /predict`) |
-| 2      | Embedded ONNX runtime in Go (removes Python dependency)   |
+- **Zero Microservice Overhead:** No external Python server or HTTP round-trips; inference runs in-process in $< 1\text{ ms}$.
+- **Non-CGO Fallback:** Stubs in `core/inference/inference_nocgo.go` enable compilation and test execution on machines without CGO toolchains.
+- **Sliding Ring Buffers:** `core/inference/middleware.go` maintains per-IP ring buffers of the last 60 seconds of traffic to construct live feature vectors on each request.
+- **Continuous Anomaly Scoring:** Extracts a continuous decision score in $[0.0, 1.0]$ rather than binary classification.
 
 ### Decision Engine
 
-Translate ML predictions into system actions.
+Translates the continuous anomaly score into deterministic mitigation:
 
-**Example policy:**
+| Anomaly Score | Action | HTTP Response |
+| :------------ | :----- | :------------ |
+| `score > 0.85` | **BLOCK** | `403 Forbidden` (`{"error":"forbidden","reason":"anomalous_traffic"}`) |
+| `score > 0.65` | **RATE LIMIT** | `429 Too Many Requests` (`{"error":"rate_limited","reason":"anomalous_traffic"}`) |
+| `score <= 0.65` | **ALLOW** | Forwarded to Cache / Origin Backend |
 
-| Score          | Action     |
-| -------------- | ---------- |
-| `score > 0.85` | BLOCK IP   |
-| `score > 0.65` | RATE LIMIT |
-| `score < 0.65` | ALLOW      |
+Configurable at runtime via `TURBOSH_BLOCK_THRESHOLD` and `TURBOSH_RATE_LIMIT_THRESHOLD`.
 
 **Deliverables:**
 
-- `/core/decision/decision_engine.go`
-
----
-
-## Performance Targets
-
-The ML inference system should achieve:
-
-- **< 50 ms** inference latency
-
-**Optimization methods:**
-
-- Batch predictions
-- Async processing
-- Cached feature vectors
-
----
-
-## Documentation System
-
-All documentation must be maintained inside `/docs`. This directory coordinates development across both developers.
-
-### `docs/PLAN.md`
-
-Contains the project development plan.
-
-**Structure:**
-
-- Project overview & architecture summary
-- Keshav plan & Anzal plan
-- Milestones
-
-Each developer maintains their own section.
-
-### `docs/PROGRESS.md`
-
-Tracks development history.
-
-**Example:**
-
-```
-[2026-03-04] Keshav
-  Implemented reverse proxy
-
-[2026-03-05] Anzal
-  Completed feature extraction pipeline
-```
-
-**Purpose:**
-
-- Track system changes
-- Avoid overlapping work
-- Maintain project history
-
-### `docs/AGENT.md`
-
-Context file for AI development assistants.
-
-**This file should include:**
-
-- Project summary
-- Architecture overview
-- Module descriptions
-- Developer responsibilities
-- Current development status
-
-AI agents should read this file before performing any task.
-
-### `docs/README.md`
-
-Main repository entry point.
-
-**Contents:**
-
-- Project overview
-- Architecture diagram
-- Quick start guide
-- Installation
-- Usage instructions
-- Developer roles
-- Documentation links
-
-### Additional Recommended Docs
-
-| File                   | Description                                        |
-| ---------------------- | -------------------------------------------------- |
-| `docs/ARCHITECTURE.md` | Detailed explanation of system components          |
-| `docs/API.md`          | Internal APIs between middleware, pipeline, and ML |
-| `docs/MODELS.md`       | ML model training and usage                        |
+- `/core/inference/inference.go` (CGO ONNX runtime engine)
+- `/core/inference/inference_nocgo.go` (graceful non-CGO fallback)
+- `/core/inference/features.go` (normalized Shannon entropy & feature extraction)
+- `/core/inference/middleware.go` (live windowed inference middleware)
+- `/core/decision/decision_engine.go` (threshold evaluation policy)
+- `/core/decision/decision_engine_test.go` (decision policy unit tests)
 
 ---
 
 ## Collaboration Rules
 
-To prevent merge conflicts:
-
-**Keshav owns:**
-
-- `/core`
-- `/ml`
-- `/models`
-- `/monitoring`
-
-**Anzal owns:**
-
-- `/pipeline`
-- `/datasets`
-- `/notebooks`
-
-Shared interaction occurs through feature vector interfaces only.
-
----
-
-## Keshav's Expected Deliverables
-
-By the end of development you should produce:
-
-- Reverse proxy middleware
-- Request scheduling algorithms
-- Rate limiting and traffic control
-- ML anomaly detection models
-- ML evaluation reports
-- Real-time inference system
-- Decision engine for mitigation
-- System monitoring infrastructure
-
-The final system should be capable of:
-
-- Detecting anomalous traffic
-- Mitigating attacks
-- Optimizing backend resource usage
-
-…while remaining lightweight enough to run on commodity hardware.
+- **Keshav owns:** `/core/proxy/`, `/core/scheduler/`, `/core/security/`, `/core/inference/`, `/core/decision/`, `/ml/`, `/models/`
+- **Anzal owns:** `/core/cache/`, `/pipeline/`, `/monitoring/`, `/ui/`, `/datasets/`, `/notebooks/`, `/docs/`
+- Shared interaction occurs via well-defined Go interfaces (`RequestFeatures`, `DashboardState`, `Cache`, `Scheduler`).

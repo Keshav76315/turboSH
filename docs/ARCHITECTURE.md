@@ -1,49 +1,71 @@
 # turboSH — System Architecture
 
-**Version: 0.2.0**
-**Last Updated: 2026-03-07**
+**Version: 1.0.0**  
+**Status: Production Ready (EPICs 1–9 Finished, Flaw Audit Remediation Verified)**
 
 ---
 
 ## 1. Overview
 
-turboSH is an AI‑powered middleware system that sits between clients and backend servers. It intercepts every request, applies scheduling and caching, logs traffic data, and runs ML‑based anomaly detection to automatically mitigate threats.
+turboSH is a high-performance, AI‑powered middleware system positioned between clients and backend servers. It intercepts HTTP traffic, enforces concurrency limits and token-bucket rate limiting, caches frequent responses, logs traffic with privacy-preserving IP hashing, computes sliding-window behavioral features, and applies real-time ML anomaly detection to automatically mitigate threats (blocking or throttling malicious traffic).
 
-The system is designed to run on commodity hardware (4 GB RAM, 2 CPU cores, no GPU).
+The system runs efficiently on commodity hardware (4 GB RAM, 2 CPU cores, no GPU required) with in-process ML inference executing in under 1 millisecond.
 
 ---
 
 ## 2. High-Level Request Flow
 
+The middleware pipeline is assembled in [`core/proxy/middleware.go`](../core/proxy/middleware.go) in a verified, hardened execution order:
+
 ```
-                    ┌──────────────────────────────────────────────────┐
-                    │              turboSH Middleware                  │
-                    │                                                  │
-  Client ──────►    │  Reverse Proxy                                   │
-                    │       │                                          │
-                    │       ▼                                          │
-                    │  Scheduler / Rate Limiter                        │
-                    │       │                                          │
-                    │       ▼                                          │
-                    │  Cache Layer ──── hit ──► Response to Client     │
-                    │       │ miss                                     │
-                    │       ▼                                          │
-                    │  Traffic Logger ──────► Log Store                │
-                    │       │                                          │
-                    │       ▼                                          │
-                    │  Feature Extraction                              │
-                    │       │                                          │
-                    │       ▼                                          │
-                    │  ML Inference Engine                             │
-                    │       │                                          │
-                    │       ▼                                          │
-                    │  Decision Engine ─── BLOCK / RATE LIMIT / ALLOW  │
-                    │       │ (if ALLOW)                               │
-                    │       ▼                                          │
-                    │  Forward to Backend ──► Backend Server           │
-                    │                                                  │
-                    └──────────────────────────────────────────────────┘
+                      ┌─────────────────────────────────────────────────────────────┐
+                      │                     turboSH Middleware                      │
+                      │                                                             │
+  Client Request ───► │  1. Dashboard Recorder (Telemetry & End-to-End Latency)     │
+                      │       │                                                     │
+                      │       ▼                                                     │
+                      │  2. Prometheus Base Metrics (/metrics on :9090)             │
+                      │       │                                                     │
+                      │       ▼                                                     │
+                      │  3. Canonical Client Identity (Trusted Proxies & HMAC-SHA)  │
+                      │       │                                                     │
+                      │       ▼                                                     │
+                      │  4. Concurrency Scheduler (Semaphore Limiter & Queue)       │
+                      │       │                                                     │
+                      │       ▼                                                     │
+                      │  5. Traffic Logger (Wraps downstream; feeds live ML stats)  │
+                      │       │                                                     │
+                      │       ▼                                                     │
+                      │  6. Token Bucket Rate Limiter (Per-IP Capacity & Refill)    │
+                      │       │                                                     │
+                      │       ▼                                                     │
+                      │  7. Traffic Rules (Sliding Burst & Endpoint Abuse Guards)   │
+                      │       │                                                     │
+                      │       ▼                                                     │
+                      │  8. Live Feature Extraction & In-Process ONNX ML Inference  │
+                      │       │                                                     │
+                      │       ▼                                                     │
+                      │  9. Decision Engine ─── BLOCK (403) / RATE LIMIT (429)      │
+                      │       │ (if ALLOW)                                          │
+                      │       ▼                                                     │
+                      │ 10. LRU Cache & Stampede Collapse ── hit ──► Direct Return  │
+                      │       │ (on cache miss)                                     │
+                      │       ▼                                                     │
+                      │ 11. Upstream Reverse Proxy (req.Host Rewrite)               │
+                      └───────┼─────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                     Backend Origin Server (:9092)
 ```
+
+### Architectural Design Invariants
+
+1. **ML Inference Precedes Cache:**
+   Evaluating ML anomaly detection *before* the cache ensures that repeated request bursts, credential stuffing, and scraping attacks cannot hide behind cache hits. Every incoming request is subjected to behavioral security analysis.
+2. **Traffic Logger Wraps Downstream Handlers:**
+   The Traffic Logger middleware wraps all downstream execution. This ensures that *all* traffic — cache hits, normal origin responses, token-bucket throttles, and ML-blocked requests — is captured in `logs/traffic.jsonl` and fed back to ML latency ring buffers in real time.
+3. **Canonical Client Identity Established Early:**
+   IP extraction resolves trusted reverse proxies (`TURBOSH_TRUSTED_PROXIES`) and applies HMAC-SHA-256 salting before any rate limiter or ML component runs, guaranteeing that all layers reference the exact same client identity.
 
 ---
 
@@ -51,274 +73,221 @@ The system is designed to run on commodity hardware (4 GB RAM, 2 CPU cores, no G
 
 ### 3.1 Reverse Proxy (`core/proxy/`)
 
-The entry point for all client traffic.
+The primary HTTP gateway.
 
-| Aspect    | Detail                                               |
-| --------- | ---------------------------------------------------- |
-| Language  | Go                                                   |
-| Libraries | `net/http`, `httputil.ReverseProxy`, `gin-gonic/gin` |
-| Owner     | Keshav                                               |
+| Aspect | Detail |
+| :--- | :--- |
+| Language | Go 1.24+ |
+| Libraries | `net/http`, `net/http/httputil`, `github.com/gin-gonic/gin` |
+| Owner | Keshav |
 
 **Responsibilities:**
-
-- Accept incoming HTTP requests
-- Route requests through the middleware pipeline
-- Forward allowed requests to the backend
-- Return responses to clients
-
-**Interfaces:**
-
-- **Incoming:** HTTP requests from clients
-- **Outgoing:** Passes request context to Scheduler
+- Accepts incoming client requests on `TURBOSH_PORT` (default `:8080`)
+- Rewrites `req.Host = target.Host` to maintain backend routing integrity
+- Configures connection pooling (`Transport` with idle connection reuse)
+- Manages graceful shutdown on `SIGINT`/`SIGTERM`, safely draining open requests within 10 seconds
 
 ---
 
 ### 3.2 Request Scheduler (`core/scheduler/`)
 
-Controls request flow to prevent backend overload.
+Controls concurrent request execution to protect origin backends from saturation.
 
-| Aspect   | Detail |
-| -------- | ------ |
-| Language | Go     |
-| Owner    | Keshav |
+| Aspect | Detail |
+| :--- | :--- |
+| Language | Go |
+| Implementation | Semaphore channel (`core/scheduler/scheduler.go`) |
+| Owner | Keshav |
 
-**Algorithms:**
-
-- **Request Queue** — buffered channel or priority queue
-- **Priority Scheduling** — weighted by client reputation / request type
-- **Burst Detection** — sliding window counter per IP
-- **Rate Limiting** — token bucket per IP
-
-**Interfaces:**
-
-- **Input:** Request context from Reverse Proxy
-- **Output:** Approved requests → Cache Layer
+**Behavior:**
+- Bounded concurrency (`MaxConcurrent`, default 100 slots)
+- Configurable waiting queue timeout (`QueueTimeout`, default 10s)
+- Fast failure: if the queue timeout expires, the request is terminated with `503 Service Unavailable`
+- Exposes atomic `ActiveCount()` and `WaitingCount()` to Prometheus and the dashboard
 
 ---
 
 ### 3.3 Cache Layer (`core/cache/`)
 
-Reduces backend load by serving cached responses.
+In-memory caching layer that eliminates redundant backend requests.
 
-| Aspect   | Detail       |
-| -------- | ------------ |
-| Language | Go           |
-| Type     | LRU with TTL |
-| Owner    | Anzal        |
+| Aspect | Detail |
+| :--- | :--- |
+| Language | Go |
+| Type | Doubly linked list + hashmap LRU with TTL & byte bounds |
+| Owner | Anzal |
 
 **Behavior:**
-
-- On **cache hit** → return cached response directly (skip backend)
-- On **cache miss** → forward request downstream, cache the response on return
-
-**Metrics exposed:**
-
-- `cache_hit_rate`, `cache_miss_rate`, `cache_evictions`
-
-**Interfaces:**
-
-- **Input:** Approved requests from Scheduler
-- **Output (hit):** Response directly to client
-- **Output (miss):** Request → Traffic Logger → Backend
+- **Cache Hit:** Serves response immediately with `X-Cache: HIT` header (bypasses backend)
+- **Cache Miss:** Forwards request downstream, captures response via response recorder, and stores copy
+- **Stampede Protection:** Coalesces concurrent misses on the same URI using `singleflight`
+- **Memory Safety:** Enforces byte-level capacity limit (default 512 MB) and uses deep copies of headers/body to guarantee zero data races across goroutines
+- **TTL Eviction:** Lazy expiration on `Get()` combined with a background eviction manager (`StartTTLManager`)
 
 ---
 
-### 3.4 Traffic Logger (`pipeline/logging/`)
+### 3.4 Traffic Control & Security Rules (`core/security/`)
 
-Captures structured request metadata for the data pipeline.
+Deterministic, rule-based traffic enforcement.
 
-| Aspect   | Detail |
-| -------- | ------ |
-| Language | Go     |
-| Owner    | Anzal  |
+| Component | Behavior |
+| :--- | :--- |
+| **Rate Limiter** (`rate_limiter.go`) | Per-IP token-bucket algorithm (`RateLimitCapacity`, `RateLimitRate`) |
+| **Burst Detection** (`traffic_rules.go`) | Flags clients exceeding `BurstThreshold` requests within `BurstWindow` |
+| **Endpoint Abuse** (`traffic_rules.go`) | Flags clients targeting a single path more than `EndpointAbuseThreshold` times |
 
-**Log Schema:**
-
-| Field           | Type     | Description                   |
-| --------------- | -------- | ----------------------------- |
-| `timestamp`     | datetime | Request arrival time          |
-| `ip_hash`       | string   | Anonymized client IP          |
-| `endpoint`      | string   | Requested URL path            |
-| `method`        | string   | HTTP method (GET, POST, etc)  |
-| `status_code`   | int      | Response status code          |
-| `response_time` | float    | Backend response latency (ms) |
-| `request_size`  | int      | Request body size (bytes)     |
-
-**Interfaces:**
-
-- **Input:** Request/response metadata from Cache Layer
-- **Output:** Structured logs → Log Store (file / buffer)
+Both modules employ automated background cleanup managers (`StartCleanupManager`) that evict inactive IP buckets, keeping memory usage strictly bounded.
 
 ---
 
-### 3.5 Feature Extraction (`pipeline/feature_extraction/`)
+### 3.5 Traffic Logging System (`pipeline/logging/`)
 
-Transforms raw logs into ML‑ready feature vectors.
+Captures structured request telemetry for analysis, training datasets, and live ML feedback.
 
-| Aspect   | Detail |
-| -------- | ------ |
-| Language | Python |
-| Owner    | Anzal  |
+| Aspect | Detail |
+| :--- | :--- |
+| Language | Go |
+| Storage | JSON Lines (`logs/traffic.jsonl`) |
+| Owner | Anzal |
 
-**Computed Features:**
-
-| Feature               | Description                             |
-| --------------------- | --------------------------------------- |
-| `requests_per_ip_10s` | Request count per IP in 10s window      |
-| `requests_per_ip_60s` | Request count per IP in 60s window      |
-| `endpoint_entropy`    | Entropy of endpoint distribution per IP |
-| `latency_spike`       | Boolean: max response time > 1.5x avg   |
-| `error_rate`          | Ratio of 4xx/5xx responses              |
-| `request_variance`    | Variance of response latencies (jitter) |
-
-**Interfaces:**
-
-- **Input:** Structured logs from Traffic Logger
-- **Output:** Feature vectors → ML Inference Engine
+**Key Features:**
+- Buffered I/O (4 KB buffer) with periodic timer-based flushing and flush-on-shutdown
+- Canonical IP resolution with untrusted header striping and HMAC-SHA-256 anonymization
+- Real-time feedback loop: calls `MLProtection.RecordBackendResponse(ipHash, statusCode, latencyMs)` to maintain live sliding-window statistics for incoming ML evaluation
 
 ---
 
-### 3.6 ML Inference Engine (`ml/`)
+### 3.6 ML Inference Engine (`core/inference/`, `ml/`)
 
-Loads trained anomaly detection models and scores incoming traffic.
+Detects anomalous and malicious traffic patterns using machine learning.
 
-| Aspect         | Detail                              |
-| -------------- | ----------------------------------- |
-| Training       | Python (scikit-learn)               |
-| Inference      | ONNX Runtime (Go or Python FastAPI) |
-| Model Format   | ONNX                                |
-| Model Location | `models/anomaly_model.onnx`         |
-| Owner          | Keshav                              |
+| Aspect | Detail |
+| :--- | :--- |
+| Offline Training | Python (`scikit-learn`, `GridSearchCV`) in `ml/training/train_model.py` |
+| Model Format | ONNX (`models/anomaly_model.onnx`, exported via `skl2onnx`) |
+| Online Inference | In-process Go via CGO (`yalue/onnxruntime_go`) in `core/inference/inference.go` |
+| Fallback | Non-CGO stub in `core/inference/inference_nocgo.go` for non-CGO builds |
+| Owner | Keshav |
 
-**Models:**
+**6-Dimensional Feature Vector:**
+1. `requests_per_ip_10s`: 10-second window request count
+2. `requests_per_ip_60s`: 60-second window request count
+3. `endpoint_entropy`: Normalized Shannon entropy of visited paths ($[0.0, 1.0]$)
+4. `latency_spike`: Binary flag ($1$ if max latency $> 1.5\times$ average and $> 100\text{ ms}$)
+5. `error_rate`: 4xx/5xx error ratio in active window ($[0.0, 1.0]$)
+6. `request_variance`: Variance of inter-arrival durations
 
-- Isolation Forest
-- One‑Class SVM
-- Local Outlier Factor
-- _(Optional)_ LSTM Autoencoder
-
-**Output:**
-
-| Field                | Type   | Description                    |
-| -------------------- | ------ | ------------------------------ |
-| `anomaly_score`      | float  | 0.0 (normal) – 1.0 (anomalous) |
-| `risk_level`         | string | LOW / MEDIUM / HIGH            |
-| `recommended_action` | string | ALLOW / RATE_LIMIT / BLOCK     |
-
-**Interfaces:**
-
-- **Input:** Feature vectors from Feature Extraction
-- **Output:** Anomaly scores → Decision Engine
+Inference runs in $< 1\text{ ms}$ per request and outputs a continuous anomaly score in $[0.0, 1.0]$.
 
 ---
 
 ### 3.7 Decision Engine (`core/decision/`)
 
-Translates ML predictions into concrete system actions.
+Maps continuous ML anomaly scores to system actions.
 
-| Aspect   | Detail |
-| -------- | ------ |
-| Language | Go     |
-| Owner    | Keshav |
+| Anomaly Score | Action | HTTP Response |
+| :--- | :--- | :--- |
+| `score > 0.85` | **BLOCK** | `403 Forbidden` (`{"error":"forbidden","reason":"anomalous_traffic"}`) |
+| `score > 0.65` | **RATE LIMIT** | `429 Too Many Requests` (`{"error":"rate_limited","reason":"anomalous_traffic"}`) |
+| `score <= 0.65` | **ALLOW** | Forwarded to cache / origin |
 
-**Policy Rules:**
-
-| Condition      | Action     |
-| -------------- | ---------- |
-| `score > 0.85` | BLOCK IP   |
-| `score > 0.65` | RATE LIMIT |
-| `score < 0.65` | ALLOW      |
-
-**Interfaces:**
-
-- **Input:** Anomaly score from ML Inference Engine
-- **Output:** Action applied to request (block / throttle / forward)
+Thresholds are configurable at startup via `TURBOSH_BLOCK_THRESHOLD` and `TURBOSH_RATE_LIMIT_THRESHOLD`.
 
 ---
 
-### 3.8 Monitoring (`monitoring/`)
+### 3.8 Observability & Real-Time Dashboard (`monitoring/`, `ui/`)
 
-System observability via metrics and dashboards.
+Full-stack observability isolated on administrative port `:9090`.
 
-| Aspect   | Detail               |
-| -------- | -------------------- |
-| Language | Go                   |
-| Stack    | Prometheus + Grafana |
-| Endpoint | `/metrics`           |
-| Owner    | Keshav               |
+| Aspect | Detail |
+| :--- | :--- |
+| Prometheus | Exposed at `GET :9090/metrics` |
+| Status API | Exposed at `GET :9090/api/v1/status` (compact JSON snapshot) |
+| Web Dashboard | `GET :9090/dashboard` (Dark theme) and `/dashboard/light` (Light theme) |
+| Owner | Anzal |
 
-**Metrics:**
-
-- Request throughput (req/s)
-- Scheduler queue length
-- Cache hit rate
-- Anomaly alerts count
-- ML inference latency
+**Dashboard Capabilities:**
+- Real-time requests-per-second (RPS) throughput calculator
+- 1,000-request rolling latency tracker (average and p99 latency)
+- Cache memory consumption and hit-rate gauge
+- Live threat feed displaying the last 50 mitigation events with sanitized IP hashes and trigger details
+- 60-second animated SVG throughput waveform chart
 
 ---
 
-## 4. Data Flow Diagram
+## 4. System Data Flow Diagram
 
 ```
-  ┌─────────────┐
-  │   Clients   │
-  └──────┬──────┘
-         │ HTTP
-         ▼
-  ┌─────────────┐     ┌──────────────┐
-  │ Reverse     │     │  Prometheus  │
-  │ Proxy       │────►│  /metrics    │
-  └──────┬──────┘     └──────┬───────┘
-         │                    │
-         ▼                    ▼
-  ┌─────────────┐     ┌──────────────┐
-  │ Scheduler   │     │   Grafana    │
-  └──────┬──────┘     │  Dashboard   │
-         │            └──────────────┘
-         ▼
-  ┌─────────────┐  hit  ┌──────────┐
-  │ Cache Layer ├──────►│ Response │
-  └──────┬──────┘       └──────────┘
-         │ miss
-         ▼
-  ┌─────────────┐       ┌──────────────┐
-  │  Traffic    │──────►│  Log Store   │
-  │  Logger     │       └──────┬───────┘
-  └──────┬──────┘              │
-         │                     ▼
-         │              ┌──────────────┐
-         │              │  Feature     │
-         │              │  Extraction  │
-         │              └──────┬───────┘
-         │                     │
-         │                     ▼
-         │              ┌──────────────┐
-         │              │ ML Inference │
-         │              └──────┬───────┘
-         │                     │
-         ▼                     ▼
-  ┌─────────────┐       ┌──────────────┐
-  │  Backend    │◄──────│  Decision    │
-  │  Server     │ ALLOW │  Engine      │
-  └─────────────┘       └──────────────┘
+                             +------------------------+
+                             |    External Clients    |
+                             +------------------------+
+                                         |
+                                         | HTTP Requests
+                                         v
++---------------------------------------------------------------------------------+
+|                              turboSH Reverse Proxy                              |
+|                                                                                 |
+|   +-------------------------------------------------------------------------+   |
+|   | 1. Dashboard Recorder & 2. Prometheus Base Metrics                      |   |
+|   +-------------------------------------------------------------------------+   |
+|                                        |                                        |
+|   +------------------------------------+------------------------------------+   |
+|   | 3. Client Identity: Resolves Trusted Proxies & Computes HMAC IP Hash    |   |
+|   +-------------------------------------------------------------------------+   |
+|                                        |                                        |
+|   +------------------------------------+------------------------------------+   |
+|   | 4. Concurrency Scheduler (Semaphore Channel Limiter)                    |   |
+|   +-------------------------------------------------------------------------+   |
+|                                        |                                        |
+|   +------------------------------------+------------------------------------+   |
+|   | 5. Traffic Logger: Logs Request & Feeds Response Metrics to ML Engine   |   |
+|   +-------------------------------------------------------------------------+   |
+|                                        |                                        |
+|   +------------------------------------+------------------------------------+   |
+|   | 6. Rate Limiter (Token Bucket) & 7. Traffic Rules (Burst/Abuse)         |   |
+|   +-------------------------------------------------------------------------+   |
+|                                        |                                        |
+|   +------------------------------------+------------------------------------+   |
+|   | 8. In-Process ONNX ML Inference Engine (6D Live Feature Vector)         |   |
+|   +-------------------------------------------------------------------------+   |
+|                                        |                                        |
+|   +------------------------------------+------------------------------------+   |
+|   | 9. Decision Engine: Evaluates Continuous Anomaly Score                  |   |
+|   +-------------------------------------------------------------------------+   |
+|                    | Block (>0.85)     | Throttle (>0.65)   | Allow (<=0.65)    |
+|                    v                   v                    v                   |
+|              403 Forbidden     429 Too Many Reqs     +----------------------+   |
+|                                                      | 10. LRU Cache Layer  |   |
+|                                                      +----------------------+   |
+|                                                                 | Miss          |
+|                                                                 v               |
+|                                                      +----------------------+   |
+|                                                      | 11. Backend Forward  |   |
+|                                                      +----------------------+   |
++-----------------------------------------------------------------|---------------+
+                                                                  | Forward
+                                                                  v
+                                                     +------------------------+
+                                                     |  Origin Backend :9092  |
+                                                     +------------------------+
 ```
 
 ---
 
 ## 5. Technology Stack
 
-| Layer              | Technology                  |
-| ------------------ | --------------------------- |
-| Reverse Proxy      | Go (`net/http`, `gin`)      |
-| Scheduler          | Go (channels, goroutines)   |
-| Cache              | Go (in-memory LRU)          |
-| Traffic Logging    | Go (structured JSON logs)   |
-| Feature Extraction | Python (pandas, numpy)      |
-| ML Training        | Python (scikit-learn)       |
-| ML Inference       | ONNX Runtime (Go or Python) |
-| Model Format       | ONNX                        |
-| Monitoring         | Prometheus + Grafana        |
-| API (optional)     | FastAPI (Python)            |
+| Layer | Technology | Rationale |
+| :--- | :--- | :--- |
+| **Reverse Proxy** | Go (`net/http`, `gin-gonic/gin`) | Low overhead, predictable garbage collection, high concurrency |
+| **Concurrency Control** | Go buffered channels | Non-blocking semaphore pattern with zero deadlocks |
+| **Cache** | In-memory doubly linked list + hashmap | $O(1)$ read/write, zero external dependencies |
+| **Traffic Logging** | Go buffered I/O with HMAC-SHA-256 | High-throughput logging without disk thrashing |
+| **Feature Extraction** | Go (real-time) & Python (batch) | Mathematically unified sliding window algorithms |
+| **ML Training** | Python (`scikit-learn`) | Rapid experimentation with Isolation Forest & GridSearchCV |
+| **ML Inference** | Go CGO (`yalue/onnxruntime_go`) | Zero-latency in-process evaluation ($<1\text{ ms}$) |
+| **Observability** | Prometheus + Grafana | Industry-standard metric scraping and dashboarding |
+| **Real-Time UI** | Vanilla HTML / CSS / JS | Zero-dependency responsive interface polling `/api/v1/status` |
+| **Deployment** | Multi-arch Docker (`amd64`/`arm64`) | Portable, reproducible production deployment |
 
 ---
 
@@ -326,125 +295,76 @@ System observability via metrics and dashboards.
 
 ```
 turboSH/
-│
-├── core/                    ← Keshav
-│   ├── proxy/               │  Reverse proxy server
-│   ├── scheduler/           │  Request scheduling & rate limiting
-│   ├── cache/               │  LRU cache (Anzal)
-│   ├── security/            │  Traffic control rules
-│   ├── inference/           │  ONNX ML inference engine
-│   └── decision/            │  ML score → action mapping
-│
-├── pipeline/                ← Anzal
-│   ├── logging/             │  Traffic log capture
-│   ├── monitoring/          │  Prometheus metrics & middleware
-│   ├── feature_extraction/  │  Log → feature vectors
-│   └── dataset_builder/     │  Feature vectors → CSV datasets
-│
+├── cmd/                     ← Shared
+│   ├── turbosh/             Keshav (Main proxy entrypoint)
+│   ├── dummy_backend/       Keshav (Test backend)
+│   ├── loadtest/            Keshav + Anzal (Performance benchmarking)
+│   └── accuracy_test/       Keshav + Anzal (Detection accuracy evaluation)
+├── core/
+│   ├── proxy/               Keshav
+│   ├── scheduler/           Keshav
+│   ├── security/            Keshav
+│   ├── inference/           Keshav (In-process ONNX engine & ML middleware)
+│   ├── decision/            Keshav
+│   └── cache/               Anzal (LRU Cache, TTL manager, singleflight)
+├── pipeline/
+│   ├── logging/             Anzal (Traffic logger & IP extractor)
+│   ├── monitoring/          Anzal (Canonical Prometheus metrics)
+│   ├── feature_extraction/  Anzal (Sliding-window feature extractor)
+│   └── dataset_builder/     Anzal (Training CSV generation)
 ├── ml/                      ← Keshav
-│   ├── training/            │  Model training scripts
-│   ├── export/              │  ONNX model export
-│   ├── data/                │  Synthetic data generation
-│   └── evaluation/          │  Model evaluation & reports
-│
-├── models/                  ← Keshav (generated artifacts)
-├── monitoring/              ← Keshav
-├── datasets/                ← Anzal (generated artifacts)
-├── notebooks/               ← Anzal
+│   ├── data/                Synthetic dataset generator
+│   ├── training/            Model training & hyperparameter search
+│   ├── export/              ONNX export scripts
+│   └── evaluation/          Model performance reporting
+├── monitoring/              ← Anzal (DashboardState, Dashboard API, Prometheus)
+├── ui/                      ← Anzal (Desktop & Mobile Web Dashboards)
+├── scripts/                 ← Shared (demo.sh live runner)
+├── datasets/                ← Anzal (Generated datasets)
+├── notebooks/               ← Anzal (Traffic analysis notebooks)
 └── docs/                    ← Shared
 ```
 
 ---
 
-## 7. Interface Contracts
+## 7. Performance Targets & Validation Results
 
-Components communicate through well‑defined interfaces. This ensures Keshav and Anzal can develop independently.
-
-### 7.1 Traffic Logger → Feature Extraction
-
-**Format:** JSON lines (one JSON object per log entry)
-
-```json
-{
-  "timestamp": "2026-03-05T12:00:00Z",
-  "ip_hash": "a1b2c3d4",
-  "endpoint": "/api/login",
-  "method": "POST",
-  "status_code": 200,
-  "response_time": 45.2,
-  "request_size": 512
-}
-```
-
-### 7.2 Feature Extraction → ML Inference
-
-**Format:** Feature vector (JSON or binary)
-
-```json
-{
-  "ip_hash": "a1b2c3d4",
-  "requests_per_ip_10s": 25,
-  "requests_per_ip_60s": 80,
-  "endpoint_entropy": 0.3,
-  "latency_spike": true,
-  "error_rate": 0.15,
-  "request_variance": 12.5
-}
-```
-
-### 7.3 ML Inference → Decision Engine
-
-**Format:** Prediction result
-
-```json
-{
-  "ip_hash": "a1b2c3d4",
-  "anomaly_score": 0.87,
-  "risk_level": "HIGH",
-  "recommended_action": "BLOCK"
-}
-```
+| Metric | Target | Verified Value | Status |
+| :--- | :--- | :--- | :--- |
+| **Inference Latency** | $< 50\text{ ms}$ | **$< 1\text{ ms}$** (in-process ONNX) | **PASS** |
+| **Detection Rate (Recall)** | $> 70\%$ | **$91.2\%$** | **PASS** |
+| **False Positive Rate** | $< 5\%$ | **$3.3\%$** | **PASS** |
+| **Max Ramp Concurrency** | $> 500\text{ req/s}$ | **$613.2\text{ req/s}$** | **PASS** |
+| **Active Codebase Flaws** | $0$ | **$0$** (53 audited flaws closed) | **PASS** |
 
 ---
 
-## 8. Performance Targets
+## 8. Network Architecture & Port Allocation
 
-| Metric                 | Target  |
-| ---------------------- | ------- |
-| ML inference latency   | < 50 ms |
-| Anomaly detection rate | > 70%   |
-| False positive rate    | < 5%    |
-
----
-
-## 9. Hardware Requirements
-
-| Resource | Minimum |
-| -------- | ------- |
-| RAM      | 4 GB    |
-| CPU      | 2 cores |
-| GPU      | None    |
-| OS       | Linux   |
-
----
-
-## 10. Security & Deployment Architecture
-
-### 10.1 TLS / HTTPS Termination
-
-TurboSH supports two deployment models for HTTPS:
-
-- **Option A (Direct Termination):** Configure `TURBOSH_TLS_ENABLED=true`, `TURBOSH_TLS_CERT`, and `TURBOSH_TLS_KEY` to terminate TLS directly within the TurboSH Go process.
-- **Option B (Recommended for Production):** Deploy behind an edge TLS-terminating reverse proxy / load balancer (e.g. Nginx, Cloudflare, AWS ALB):
+turboSH enforces a clean, three-tier network isolation model:
 
 ```
-                  HTTPS (443)                     HTTP (8080)
-Internet / Client ──────────► Ingress Reverse Proxy ──────────► TurboSH ──► Backend
-                              (TLS Termination)                (Private Net)
+[Public Network]                   [Private Container Network]
+Client Requests (8080) ───────► turboSH Proxy (:8080)
+                                      │
+                                      ▼
+                               Origin Backend (:9092)
+
+[Internal Admin Network]
+Prometheus / Dashboards ──────► turboSH Admin Server (:9090)
+                                - GET /metrics
+                                - GET /api/v1/status
+                                - GET /dashboard
 ```
 
-**Production Invariants:**
-1. TurboSH's HTTP listener (`:8080`) should be bound to an internal private container network or loopback interface, not exposed directly to the public Internet.
-2. Upstream proxies must be configured in `TURBOSH_TRUSTED_PROXIES` so TurboSH's canonical IP resolver can reliably verify `X-Forwarded-For` chains and prevent IP spoofing.
-3. Prometheus scraping (`:9090/metrics`) is isolated on a dedicated internal port and must remain restricted to internal monitoring agents.
+| Port | Service | Exposure | Responsibility |
+| :--- | :--- | :--- | :--- |
+| **`:8080`** | **turboSH Proxy** | Public | Reverse proxy handling client traffic, scheduling, security rules, ML inference, and caching |
+| **`:9092`** | **Dummy / Origin Backend**| Internal | Upstream origin server servicing cache misses |
+| **`:9090`** | **Admin & Telemetry** | Internal | Isolated administrative server hosting `/metrics`, `/api/v1/status`, and `/dashboard` |
 
+### TLS / HTTPS Termination
+
+turboSH supports two deployment configurations:
+- **Direct TLS Termination:** Enable `TURBOSH_TLS_ENABLED=true` and configure `TURBOSH_TLS_CERT` and `TURBOSH_TLS_KEY`.
+- **Edge Reverse Proxy Termination (Recommended):** Place an edge load balancer (Nginx, AWS ALB, Cloudflare) in front of turboSH. Upstream proxies are specified in `TURBOSH_TRUSTED_PROXIES` so client IP extraction remains spoof-resistant.

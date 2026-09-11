@@ -101,9 +101,9 @@ TURBOSH_PORT="8080" \
 TURBOSH_BACKEND="http://localhost:9092" \
 TURBOSH_METRICS_PORT=":9090" \
 TURBOSH_METRICS_ENABLED="true" \
-TURBOSH_RATE_LIMIT_CAPACITY="10" \
-TURBOSH_RATE_LIMIT_RATE="2.0" \
-TURBOSH_BURST_THRESHOLD="15" \
+TURBOSH_RATE_LIMIT_CAPACITY="500" \
+TURBOSH_RATE_LIMIT_RATE="250.0" \
+TURBOSH_BURST_THRESHOLD="300" \
 "$ROOT_DIR/bin/turbosh" > "$ROOT_DIR/logs/turbosh.log" 2>&1 &
 TURBOSH_PID=$!
 
@@ -168,43 +168,45 @@ ENDPOINTS=(
 
 TOTAL_SENT=0
 CYCLE=0
+CONCURRENT_NORMAL=160
+CONCURRENT_CACHE=200
+CONCURRENT_BURST=240
 
 while true; do
   CYCLE=$((CYCLE + 1))
 
-  # Normal Traffic: Send steady requests (mix of repeated endpoints for cache hits)
-  for i in {1..3}; do
+  # High-volume request mix to push the dashboard into the 400-1000 req/s range.
+  NORMAL_PIDS=()
+  for ((i=0; i<CONCURRENT_NORMAL; i++)); do
     EP="${ENDPOINTS[$RANDOM % ${#ENDPOINTS[@]}]}"
-    STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8080$EP")
+    curl -s -o /dev/null -w "%{http_code}" "http://localhost:8080$EP" >/dev/null 2>&1 &
+    NORMAL_PIDS+=("$!")
     TOTAL_SENT=$((TOTAL_SENT + 1))
-    echo -e "  [$(date +%T)] ${GREEN}NORMAL${RESET} -> GET $EP (HTTP $STATUS)"
-    sleep 0.3
   done
+  wait "${NORMAL_PIDS[@]}" 2>/dev/null || true
 
-  # Cache Hit Exercise: repeatedly hit the same endpoint to drive up Cache Hit Rate
-  for i in {1..4}; do
-    STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8080/api/static/cached-catalog")
+  CACHE_PIDS=()
+  for ((i=0; i<CONCURRENT_CACHE; i++)); do
+    curl -s -o /dev/null -w "%{http_code}" "http://localhost:8080/api/static/cached-catalog" >/dev/null 2>&1 &
+    CACHE_PIDS+=("$!")
     TOTAL_SENT=$((TOTAL_SENT + 1))
-    echo -e "  [$(date +%T)] ${CYAN}CACHE TEST${RESET} -> GET /api/static/cached-catalog (HTTP $STATUS)"
-    sleep 0.15
   done
+  wait "${CACHE_PIDS[@]}" 2>/dev/null || true
 
-  # Every 4 cycles: Trigger burst traffic to test Rate Limiting / Threat Feed
-  if (( CYCLE % 4 == 0 )); then
-    echo -e "  ${YELLOW}⚡ SIMULATING BURST ATTACK (${TOTAL_SENT} total reqs) -> firing 18 rapid requests to /api/login...${RESET}"
+  # Add a heavier burst to create visible mitigation activity while maintaining a realistic attack scenario.
+  if (( CYCLE % 3 == 0 )); then
+    echo -e "  ${YELLOW}⚡ SIMULATING HIGH-VOLUME BURST (${TOTAL_SENT} total reqs) -> ${CONCURRENT_BURST} concurrent hits on /api/login ...${RESET}"
     BURST_PIDS=()
-    for b in {1..18}; do
+    for ((b=0; b<CONCURRENT_BURST; b++)); do
       curl -s -o /dev/null -w "%{http_code}" "http://localhost:8080/api/login" >/dev/null 2>&1 &
-      BURST_PIDS+=($!)
+      BURST_PIDS+=("$!")
       TOTAL_SENT=$((TOTAL_SENT + 1))
     done
-    for pid in "${BURST_PIDS[@]}"; do
-      wait "$pid" 2>/dev/null || true
-    done
-    echo -e "  ${PURPLE}✔ Burst finished. Check Threat Feed & Rate Limit alerts in Dashboard!${RESET}"
+    wait "${BURST_PIDS[@]}" 2>/dev/null || true
+    echo -e "  ${PURPLE}✔ High-volume burst finished. Dashboard should now show elevated RPS and threat counters.${RESET}"
   fi
 
-  # Query latest dashboard stats snapshot to display in terminal
+  # Query latest dashboard stats snapshot to display in terminal.
   STATS=$(curl -s "http://localhost:9090/api/v1/status" 2>/dev/null || true)
   if [[ -n "$STATS" ]]; then
     RPS=$(echo "$STATS" | grep -o '"recent_rps":[0-9.]*' | cut -d: -f2 || echo "0")
@@ -215,5 +217,5 @@ while true; do
     echo -e "  ${BOLD}── LIVE STATS ── Throughput: ${RPS} req/s | Cache Hits: ${HITS} / Misses: ${MISSES} (Hit Rate: ${RATE}) | Sched Active: ${ACTIVE}${RESET}"
   fi
 
-  sleep 1
+  sleep 0.25
 done

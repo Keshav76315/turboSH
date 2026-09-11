@@ -6,14 +6,24 @@ This document explains the real-time monitoring system and live demo workflow bu
 
 ## ⚡ Quick Start: Launch Live Demo Session
 
-To turn on the complete end-to-end live demo session in one command, run:
+To turn on the complete end-to-end live demo session in one command:
 
+### macOS / Linux:
 ```bash
 ./scripts/demo.sh
 ```
 
+### Windows (PowerShell or CMD):
+```powershell
+# In PowerShell:
+.\scripts\demo.ps1
+
+# Or in Command Prompt / Explorer:
+scripts\demo.bat
+```
+
 This single command:
-1. Compiles the binaries (`bin/dummy_backend` and `bin/turbosh`)
+1. Compiles the binaries (`bin/dummy_backend` and `bin/turbosh` on Unix, `.exe` on Windows)
 2. Starts the Dummy Backend on **`:9092`**
 3. Starts the turboSH Proxy on **`:8080`** (with metrics & status API on **`:9090`**)
 4. Opens the real-time Monitoring Dashboard in your default web browser at **`http://localhost:9090/dashboard`**
@@ -21,8 +31,15 @@ This single command:
 6. Displays live throughput, cache stats, and threat detections both in your terminal and on the web UI
 
 > **Theme & Headless Options:**
-> - Launch in Light Theme: `./scripts/demo.sh --light`
-> - Launch without opening browser: `./scripts/demo.sh --no-browser`
+> - **macOS/Linux**:
+>   - Light Theme: `./scripts/demo.sh --light`
+>   - Headless (no browser): `./scripts/demo.sh --no-browser`
+> - **Windows (PowerShell)**:
+>   - Light Theme: `.\scripts\demo.ps1 -Light` (or `--light`)
+>   - Headless (no browser): `.\scripts\demo.ps1 -NoBrowser` (or `--no-browser`)
+> - **Windows (Command Prompt / CMD)**:
+>   - Light Theme: `scripts\demo.bat -Light`
+>   - Headless (no browser): `scripts\demo.bat -NoBrowser`
 > - To cleanly exit and shut down all servers: press **`Ctrl+C`**
 
 ---
@@ -60,7 +77,6 @@ The demo runs three isolated network layers:
                       |         Port :9092          |
                       +-----------------------------+
 ```
-
 ### Port Responsibilities
 
 | Port | Service | Visibility | Purpose |
@@ -99,8 +115,9 @@ A thread-safe, lock-free/low-contention aggregator that holds the live state of 
 - A zero-dependency JavaScript polling engine running at a 1-second interval (`1000ms`).
 - Translates raw API numbers into formatted metrics (`toLocaleString()`, `%`, bytes formatted as `KB`/`MB`, and milliseconds).
 
-### E. One-Command Demo Runner: `scripts/demo.sh`
-- Builds and runs all services, cleans stale ports, launches the browser, and generates dynamic traffic patterns.
+### E. One-Command Demo Runners
+- **macOS / Linux (`scripts/demo.sh`)**: Bash script with ANSI colors, `lsof` port sanitization, and background `curl` jobs.
+- **Windows (`scripts/demo.ps1` & `scripts/demo.bat`)**: Native PowerShell script leveraging `Get-NetTCPConnection` / `netstat` for port validation, `Start-Process` for background daemon management, and high-performance .NET `HttpClient` for async non-blocking traffic generation. Includes `scripts/demo.bat` for CMD / one-click Explorer launch.
 
 ---
 
@@ -193,39 +210,77 @@ fetch('http://localhost:9090/api/v1/status')
 
 ---
 
-## 4. How the Demo Script Works (`scripts/demo.sh`)
+## 4. How the Demo Scripts Work
 
+### macOS / Linux (`scripts/demo.sh`)
 When you run `./scripts/demo.sh`, the script automatically executes the following sequence:
-
-1. **Port Sanitation**: Checks ports `9092`, `8080`, and `9090`. If any stale processes occupy them, they are cleanly terminated.
+1. **Port Sanitation**: Checks ports `9092`, `8080`, and `9090` using `lsof -ti:$PORT`. If any stale processes occupy them, they are cleanly terminated.
 2. **Binary Compilation**: Builds `bin/dummy_backend` and `bin/turbosh` using `go build`.
-3. **Backend Startup**: Launches the dummy server on `:9092` and verifies health via curl.
-4. **Proxy Startup**: Launches turboSH on `:8080` (forwarding to `:9092`, metrics on `:9090`) with a token bucket capacity of 10 requests and a refill rate of 2 tokens/sec.
-5. **Browser Launch**: Automatically opens `http://localhost:9090/dashboard` in the default browser.
-6. **Traffic Simulation Loop**:
-   - **Steady Traffic**: Sends continuous requests to random endpoints (`/api/users`, `/api/products`, `/health`, etc.).
-   - **Cache Exerciser**: Repeatedly requests `/api/static/cached-catalog`. The first request misses; subsequent requests hit the cache, causing the Cache Hit Rate to rise on the dashboard.
-   - **Burst Attack**: Every 4 cycles, fires 18 rapid concurrent requests to `/api/login`. Because token capacity is 10, the remaining requests immediately trigger HTTP `429 Too Many Requests`, populating the Threat Feed in real time.
-7. **Graceful Shutdown**: Trapping `SIGINT` (Ctrl+C) terminates the traffic loop, the proxy, and the dummy server, releasing all ports.
+3. **Backend Startup**: Launches the dummy server on `:9092` and verifies health via `curl`.
+4. **Proxy Startup**: Launches turboSH on `:8080` (forwarding to `:9092`, metrics on `:9090`) with rate limiting and burst protection active.
+5. **Browser Launch**: Opens `http://localhost:9090/dashboard` in the default browser using macOS `open` or Linux `xdg-open`.
+6. **Traffic Simulation Loop**: Generates high-volume steady traffic, cache exercises, and periodic bursts to trigger live rate limiting.
+7. **Graceful Shutdown**: Traps `SIGINT` (`Ctrl+C`) to cleanly terminate all processes and release ports.
+
+---
+
+### Windows (`scripts/demo.ps1` & `scripts/demo.bat`)
+Designed specifically to solve Windows compatibility hurdles without requiring external Unix tools or WSL:
+
+| Unix Issue in Bash | Windows PowerShell Solution (`scripts/demo.ps1`) |
+| :--- | :--- |
+| **Shebang `#!/bin/bash`** | Native `.ps1` script, runnable directly or via `scripts\demo.bat`. |
+| **Bash Variable Expansion (`BASH_SOURCE`)** | `$MyInvocation.MyCommand.Definition` & `Split-Path` to robustly resolve repo root. |
+| **`lsof -ti:$PORT`** | Native `Get-NetTCPConnection -LocalPort $Port` (with automatic fallback to `netstat -ano`). |
+| **Path Slashes & `.exe` Binaries** | `Join-Path` resolves Windows paths and builds `bin\dummy_backend.exe` & `bin\turbosh.exe`. |
+| **External `curl` / Job Control (`&`)** | Uses high-performance asynchronous .NET `[System.Net.Http.HttpClient]` tasks (`WaitAll`), avoiding heavy process spawning overhead on Windows. |
+| **`open` / `xdg-open`** | Native `Start-Process $dashboardUrl` opens your default Windows web browser (Edge, Chrome, Firefox). |
+| **Job Signals / Traps** | PowerShell `try { ... } finally { Cleanup-Processes }` block cleanly stops background processes on `Ctrl+C`. |
 
 ---
 
 ## 5. Running the Demo
 
-### Start the Demo (Dark Theme by default)
+### macOS / Linux:
 ```bash
+# Start default (Dark Theme)
 ./scripts/demo.sh
-```
 
-### Start with Light Theme
-```bash
+# Start with Light Theme
 ./scripts/demo.sh --light
-```
 
-### Start in Headless Mode (no browser auto-open)
-```bash
+# Start in Headless Mode (no browser auto-open)
 ./scripts/demo.sh --no-browser
 ```
+
+### Windows (PowerShell):
+```powershell
+# Start default (Dark Theme)
+.\scripts\demo.ps1
+
+# Start with Light Theme
+.\scripts\demo.ps1 -Light
+
+# Start in Headless Mode (no browser auto-open)
+.\scripts\demo.ps1 -NoBrowser
+
+# (Note: Standard execution policy bypass if scripts are restricted on your laptop)
+powershell -ExecutionPolicy Bypass -File .\scripts\demo.ps1
+```
+
+### Windows (Command Prompt / CMD / Double-Click):
+```cmd
+:: Start default (Dark Theme)
+scripts\demo.bat
+
+:: Start with Light Theme
+scripts\demo.bat -Light
+
+:: Start in Headless Mode
+scripts\demo.bat -NoBrowser
+```
+
+---
 
 ### Direct URLs
 - **Dark Dashboard**: [http://localhost:9090/dashboard](http://localhost:9090/dashboard)
@@ -233,3 +288,4 @@ When you run `./scripts/demo.sh`, the script automatically executes the followin
 - **Raw Status JSON**: [http://localhost:9090/api/v1/status](http://localhost:9090/api/v1/status)
 - **Prometheus Metrics**: [http://localhost:9090/metrics](http://localhost:9090/metrics)
 - **Proxy Endpoint**: [http://localhost:8080/](http://localhost:8080/)
+

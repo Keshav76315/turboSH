@@ -41,9 +41,9 @@ docker run -p 8080:8080 -e TURBOSH_BACKEND="http://host.docker.internal:9090" tu
 
 Turn on a complete real-time demo session with one command (starts dummy backend on `:9092`, proxy on `:8080`, launches the live dashboard on `:9090`, and simulates live traffic):
 
-```bash
-./scripts/demo.sh
-```
+- **macOS / Linux**: `./scripts/demo.sh`
+- **Windows (PowerShell)**: `.\scripts\demo.ps1`
+- **Windows (CMD / Explorer)**: `scripts\demo.bat`
 
 - **Dark Dashboard**: [http://localhost:9090/dashboard](http://localhost:9090/dashboard)
 - **Light Dashboard**: [http://localhost:9090/dashboard/light](http://localhost:9090/dashboard/light)

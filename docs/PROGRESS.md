@@ -19,7 +19,7 @@
 - **EPIC 2 — Core Middleware System:**
   - Implemented reverse proxy (`core/proxy/proxy.go`) — wraps `httputil.ReverseProxy` with Gin
   - Implemented middleware pipeline assembly (`core/proxy/middleware.go`) — ordered chain: Scheduler → RateLimiter → TrafficRules → Cache → Proxy
-  - Implemented request scheduler (`core/scheduler/scheduler.go`, `queue.go`) — semaphore-based concurrency control
+  - Implemented request scheduler (`core/scheduler/scheduler.go`) — semaphore-based concurrency control
   - Implemented rate limiter (`core/security/rate_limiter.go`) — per-IP token bucket
   - Implemented traffic rules (`core/security/traffic_rules.go`) — burst detection + endpoint abuse
   - Implemented decision engine (`core/decision/decision_engine.go`) — anomaly score → action mapping
@@ -61,18 +61,20 @@
     - Performed Exploratory Data Analysis (`notebooks/traffic_analysis.ipynb`)
     - Simulated Attacks (`datasets/attack_dataset.csv`)
 
+---
+
 ### 2026-03-07
 
 **Keshav**
 
 - **EPIC 6 — Machine Learning System:**
-  - Written Synthetic Data Generator (`ml/data/generate_synthetic_data.py`) which generated 22k rows of data.
-  - Developed and executed model training script via GridSearchCV (`ml/training/train_model.py`) over IsolationForest, One-Class SVM and LOF.
-  - Selected IsolationForest as winner (Validation F1 Score ~0.99).
+  - Written Synthetic Data Generator (`ml/data/generate_synthetic_data.py`) generating 22,000 records.
+  - Developed and executed model training script via GridSearchCV (`ml/training/train_model.py`) over Isolation Forest, One-Class SVM, and LOF.
+  - Selected Isolation Forest as winner (Validation F1 Score ~0.99).
   - Authored evaluation report documenting the selection (`docs/model_evaluation_report.md`).
   - Exported the finalized model via skl2onnx (`ml/export/export_onnx.py` to `models/anomaly_model.onnx`).
 - **EPIC 7 — ML Inference Integration:**
-  - Created ONNX Runtime Go wrapper (`core/inference/inference.go`) with CGO build tags for cross-platform compilation.
+  - Created ONNX Runtime Go wrapper (`core/inference/inference.go`) with CGO build tags.
   - Created non-CGO stub (`core/inference/inference_nocgo.go`) for graceful degradation on machines without `gcc`.
   - Defined `RequestFeatures` struct and `ShannonEntropy` helper (`core/inference/features.go`).
   - Built ML Protection middleware (`core/inference/middleware.go`) — extracts live features, runs ONNX inference, enforces BLOCK/RATE_LIMIT/ALLOW.
@@ -90,31 +92,63 @@
   - Standardized privacy-first hashed IP tracking (`RedactIP`) across the ML decision state and traffic logs.
 - **EPIC 8 — Monitoring & Observability:**
   - **Story 8.1 — Metrics Collector:**
-    - Integrated `prometheus/client_golang` and exported the router's `/metrics` endpoint.
+    - Integrated `prometheus/client_golang` and exported `/metrics` endpoint.
     - Instrumented internal components to track Request Throughput, Cache Hit Ratio, and ML Anomaly Alerts via Prometheus Counters.
     - Added concurrent tracking for `Scheduler` Active and Waiting Queues via Prometheus Gauges.
   - **Story 8.2 — Grafana Dashboard:**
     - Created `docker-compose.yml` defining the Prometheus + Grafana stack.
     - Configured auto-provisioning for Prometheus scraping (`prometheus.yml`) and Grafana datasources/dashboards.
-    - Built a pre-configured `turbosh.json` Grafana dashboard featuring the core system metrics.
+    - Built a pre-configured `turbosh.json` Grafana dashboard featuring core system metrics.
 
 **Keshav & Anzal**
 
 - **EPIC 9 — Testing & Optimization:**
   - **Story 9.1 — Load Testing:**
-    - Built `cmd/loadtest/main.go` — A 4-phase stress testing tool (Baseline, Ramp-up, Sustained, Spike).
-    - Validated high-throughput proxy performance (~2500 req/s during ramp-up, stable 600 req/s during 30s sustained load with mixed block/allow traffic).
+    - Built `cmd/loadtest/main.go` — 4-phase stress testing tool (Baseline, Ramp-up, Sustained, Spike).
+    - Validated high-throughput proxy performance (~2500 req/s during ramp-up, stable 600 req/s during 30s sustained load).
     - Auto-generated `docs/benchmark_report.md`.
   - **Story 9.2 — Detection Accuracy Testing:**
     - Built `cmd/accuracy_test/main.go` — ML detection evaluator.
     - Executed Normal Traffic against DDoS Burst and Endpoint Scraping profiles.
-    - Achieved **91.2% Detection Rate (Recall)** and **3.3% False Positive Rate**, officially passing the `ARCHITECTURE.md` targets after retraining on improved synthetic data.
-- **Security**: Implemented `TURBOSH_TRUSTED_PROXIES` to prevent IP spoofing in production environments.
-- Developed `pipeline/logging/ip_extractor.go` to centralize IP extraction and redaction.
-- Resolved circular import between `pipeline/logging` and `core/inference` via interface decoupling.
-- Finalized v1.0 documentation (README, PLAYBOOK, ARCHITECTURE, DATA_SCHEMA).
-- Verified production-ready containerized deployment and monitoring stack.
-  - Auto-generated `docs/detection_accuracy_report.md`.
+    - Achieved **91.2% Detection Rate (Recall)** and **3.3% False Positive Rate**, passing `ARCHITECTURE.md` targets.
+    - Auto-generated `docs/detection_accuracy_report.md`.
+  - Resolved circular import between `pipeline/logging` and `core/inference` via interface decoupling.
+  - Finalized initial v1.0 documentation (README, PLAYBOOK, ARCHITECTURE, DATA_SCHEMA).
+
+---
+
+### 2026-09-08
+
+**Anzal**
+
+- **Flaw Audit Resolution — Section 4 (Architecture & Pipeline Disconnects):**
+  - Re-ordered middleware chain in `core/proxy/middleware.go` so `TrafficLogger` wraps downstream handlers and ML Inference runs prior to Cache.
+  - Connected `TrafficLogger` backend response callbacks to `MLProtection.RecordBackendResponse` to feed live status and latency metrics.
+  - Removed dead `core/scheduler/queue.go` priority queue stub, consolidating concurrency control on the clean channel-based semaphore in `scheduler.go`.
+- **Flaw Audit Resolution — Section 5 (Security & Privacy Hardening):**
+  - Built centralized canonical IP resolver in `pipeline/logging/ip_extractor.go` with trusted proxy validation against spoofed `X-Forwarded-For` headers.
+  - Implemented full HMAC-SHA-256 IP anonymization with configurable salt (`TURBOSH_IP_SALT`).
+  - Added TLS termination support to `cmd/turbosh/main.go` via `TURBOSH_TLS_ENABLED`, `TURBOSH_TLS_CERT`, and `TURBOSH_TLS_KEY`.
+  - Isolated Prometheus `/metrics` endpoint on dedicated internal administrative port (`TURBOSH_METRICS_PORT`, default `:9090`).
+  - Hardened Dockerfile with non-root runtime user.
+  - Wrote unit test suite `pipeline/logging/ip_extractor_test.go` verifying proxy trust and IP extraction.
+- **Flaw Audit Resolution — Section 7 (Memory Leaks & Concurrency Fixes):**
+  - Standardized memory accounting across TTL and LRU evictions in `core/cache/ttl_manager.go` and `lru_cache.go`, preventing memory drift.
+  - Added `StartCleanupManager` to `RateLimiter` and `TrafficRules` to periodically evict inactive client IPs.
+  - Windowed endpoint history in `MLProtection` strictly to active 60s windows and added `PruneAll` to purge abandoned client records.
+  - Switched `LRUCache.Get()` to single-lock pattern and added deep-copy isolation for cached responses.
+  - Authored comprehensive architectural record `docs/RESOURCE_AND_CONCURRENCY_FIXES.md`.
+- **Flaw Audit Resolution — Section 8 (Monitoring, Metrics & Grafana):**
+  - Replaced corrupted rune conversions (`string(rune(status))`) with `strconv.Itoa(status)`.
+  - Consolidated duplicate Prometheus metric registrations between `monitoring/` and `pipeline/monitoring/`, preventing runtime init panics.
+  - Aligned PromQL metric names in `monitoring/grafana/dashboards/turbosh.json` with canonical pipeline metrics.
+  - Cleaned up duplicate Grafana datasource and dashboard provisioning YAML files.
+- **Flaw Audit Resolution — Section 9 (Resource Lifecycle & Flushing):**
+  - Added graceful shutdown signal handling in `cmd/turbosh/main.go` with 10-second timeout context.
+  - Implemented `Components.Close()` to safely terminate `CacheStop`, `PollerStop`, and background cleanup managers.
+  - Added automatic periodic flushing to `TrafficLogger` to prevent buffered logs from stalling during low traffic.
+
+---
 
 ### 2026-09-09
 
@@ -127,7 +161,7 @@
   - Replaced entire-log duration averaging in Python (`pipeline/feature_extraction/feature_extractor.py`) with true sliding window feature extraction (60s window, 10s sub-window) to accurately capture bursts.
   - Unified Python `latency_spike` detection threshold with Go real-time inference (`> 1.5x avg and > 100ms`).
   - Added unit test suite `pipeline/feature_extraction/test_feature_extractor.py` verifying entropy, sliding windows, and spike detection.
-  - Bounded synthetic data entropy in `ml/data/generate_synthetic_data.py` strictly to $[0.0, 1.0]$ across all profiles, added `argparse` support, and regenerated 22k records.
+  - Bounded synthetic data entropy in `ml/data/generate_synthetic_data.py` strictly to $[0.0, 1.0]$ across all profiles, added `argparse` support, and regenerated 22,000 records.
   - Retrained Isolation Forest model via GridSearchCV (`train_model.py`, Validation F1: 0.9827) and exported updated ONNX model (`models/anomaly_model.onnx`).
 - **Flaw Audit Resolution — Sections 10, 11, and 12 (Deployment, Tooling & Quality):**
   - **Section 10 (Docker, Deployment & Network):**
@@ -148,14 +182,13 @@
     - Updated `docs/AGENT.md` Current Status to Production Ready / Complete.
   - **Flaw Catalog:** Updated `flaws.md` marking all 53 active flaws across the repository as Closed (0 active flaws remaining).
 
----
+**Anzal & Maanya**
 
-<!--
-TEMPLATE — Copy this for new entries:
-
-### YYYY-MM-DD
-
-**Developer Name**
-- What was done
-- What was done
--->
+- **Real-Time Observability Dashboard & Live Demo Integration:**
+  - Developed `monitoring/dashboard_state.go`: lock-free thread-safe aggregator maintaining atomic request counters, 60s sliding window throughput, 1,000-request rolling latency (average and p99 latency), and a 50-item mitigation threat feed ring buffer.
+  - Created `core/cache/dashboard_adapter.go`: telemetry adapter connecting `LRUCache` memory and stats to the dashboard state.
+  - Implemented `monitoring/dashboard_api.go`: `GET /api/v1/status` JSON snapshot endpoint with CORS headers, alongside embedded HTML handlers for `/dashboard` and `/dashboard/light`.
+  - Created desktop and mobile user interfaces in `ui/` (`ui/dark_desktop_ui.html`, `ui/light_desktop_ui.html`, `ui/dark_mobile_ui.html`, `ui/light_mobile_ui.html`) with zero external JavaScript dependencies, SVG waveform throughput chart, animated telemetry indicators, and live mitigation feed.
+  - Built `scripts/demo.sh`: one-command live runner handling port cleanup, binary compilation, backend startup (`:9092`), proxy startup (`:8080`), browser launch (`:9090/dashboard`), dynamic traffic simulation, and graceful teardown.
+  - Authored comprehensive guide in `docs/REALTIME_DASHBOARD_DEMO.md`.
+  - Wired live decision event emission in `core/proxy/middleware.go` to capture client IP hashes and anomaly scores into the dashboard threat feed.
