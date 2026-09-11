@@ -19,6 +19,9 @@ RUN ARCH="${TARGETARCH:-amd64}" && \
     mv onnxruntime-linux-${ONNX_ARCH}-1.17.1/lib/libonnxruntime.so.1.17.1 /app/onnx_lib/libonnxruntime.so && \
     rm -rf onnurl.tgz onnxruntime-linux-${ONNX_ARCH}-1.17.1
 
+# Enable automatic Go toolchain switching for modules requiring newer Go versions (e.g. Gin v1.12)
+ENV GOTOOLCHAIN=auto
+
 # Download Go modules
 COPY go.mod go.sum ./
 RUN go mod download

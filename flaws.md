@@ -19,7 +19,8 @@
 10. [Docker, Deployment & Network Issues](#10-docker-deployment--network-issues)
 11. [Test & Tooling Flaws](#11-test--tooling-flaws)
 12. [Documentation & Code Quality Deficiencies](#12-documentation--code-quality-deficiencies)
-13. [Audit Summary Statistics](#13-audit-summary-statistics)
+13. [SIH (Smart India Hackathon) Alignment & Deficiencies](#13-sih-smart-india-hackathon-alignment--deficiencies)
+14. [Audit Summary Statistics](#14-audit-summary-statistics)
 
 ---
 
@@ -449,7 +450,184 @@ The following items from the initial audit were verified as **false positives or
 
 ---
 
-## 13. Audit Summary Statistics
+## 13. SIH (Smart India Hackathon) Alignment & Deficiencies
+
+> **Scope:** Verification of turboSH against official SIH problem statement requirements, comparing documentation claims against actual codebase implementation, with technical specifications for required additions.  
+> **Status:** Active / In-Progress
+
+### SIH Challenge Requirements Scorecard
+
+| # | SIH Challenge Requirement | Documentation / Review Claim | Actual Codebase Reality | Status / Gap Level |
+|---|---|---|---|---|
+| **13.1** | **State Representation (Vectors & Graphs)** | "6D Feature vector; could extend to graph" | 6D tabular vector in [`core/inference/features.go`](core/inference/features.go). **Zero graph representations exist.** | 🟡 **Partial** (Vector exists, Graph missing) |
+| **13.2** | **State-Transition Dynamics (LSTM, Transformer, GNN)** | "Could extend to LSTM; current ensemble" | Only static **Isolation Forest** served in Go ONNX. OC-SVM/LOF only tuned in Python. **No sequence model exists.** | 🔴 **Major Gap** (Purely static point-in-time) |
+| **13.3** | **Forecast Future States & Attacker Progression** | "Does this partially; predict next 5 requests" | **Purely reactive.** Scores $X_t$ in [`core/inference/middleware.go`](core/inference/middleware.go). **No forward simulation or progression probabilities.** | 🔴 **Major Gap** (No forecasting implemented) |
+| **13.4** | **Map Behaviour to MITRE ATT&CK Stages** | "Current feature patterns map to MITRE stages" | Conceptual mapping only. **Zero MITRE ATT&CK code, structs, or metric labels exist.** | 🔴 **Missing in Code** (High-impact win) |
+| **13.5** | **Explainability (Attention, Feature Attribution)** | "Each score comes with feature breakdown" | Engine returns a single scalar `float64`. **No SHAP, feature attribution, or model confidence breakdown.** | 🔴 **Missing in Code** (High-impact win) |
+| **13.6** | **Demonstrable Learning (Not Just Static Classifier)** | "Learns dynamics; continually rescored" | Offline batch training in [`ml/training/train_model.py`](ml/training/train_model.py). **No online learning, drift detection, or retraining loop.** | 🟡 **Partial** (Static trained model) |
+
+---
+
+### 13.1 — Network State Representation: Lack of Graph-Based Modeling
+
+- **Status:** Active / Unresolved (Gap)
+- **SIH Requirement:** *"Represent network state using feature vectors or graphs"*
+- **Current State:** The proxy extracts a 6-dimensional tabular vector per client IP (`requests_per_ip_10s`, `requests_per_ip_60s`, `endpoint_entropy`, `latency_spike`, `error_rate`, `request_variance`) in [`core/inference/features.go`](core/inference/features.go).
+- **Flaw / Deficiency:** The SIH challenge specifically calls for graph representations or feature vectors. turboSH has zero graph data structures, topological metrics, or adjacency mappings.
+- **Required Additions & Improvements:**
+  1. **Bipartite & Temporal Interaction Graph:**
+     - Build an in-memory directed graph representing client-to-API interactions:
+       - **Nodes:** Client IP nodes $\to$ API Endpoint nodes (`/api/v1/auth`, `/api/v1/data`, etc.).
+       - **Edges:** Request interactions weighted by `[timestamp, frequency, status_code, payload_bytes, error_flag]`.
+  2. **Topological Graph Metrics in Feature Vectors:**
+     - Integrate graph-structural metrics into the feature extraction pipeline:
+       - **Node In-Degree / Out-Degree:** Ratio of distinct endpoints targeted by an IP over a sliding window.
+       - **Endpoint Centrality & Graph Entropy:** Measures anomalous fan-out or broad reconnaissance scans.
+       - **Graph Edit Distance / Clustering Coefficient:** Quantifies deviation from baseline API navigation topologies.
+  3. **GNN / Embedding Pipeline:**
+     - Add `ml/training/train_gnn.py` using PyTorch Geometric (PyG) or NetworkX to generate node embeddings from `logs/traffic.log`.
+
+---
+
+### 13.2 — State-Transition Dynamics: Absence of Sequence Models (LSTM / Transformer / GNN)
+
+- **Status:** Active / Unresolved (Gap)
+- **SIH Requirement:** *"Learn state-transition dynamics using sequence models (LSTM, Transformer, GNN)"*
+- **Current State:** turboSH uses static point-in-time anomaly detection. Only a single scikit-learn `IsolationForest` model is loaded and executed via ONNX in [`core/inference/inference.go`](core/inference/inference.go). OC-SVM and LOF are merely benchmarked during offline GridSearch and never executed in Go.
+- **Flaw / Deficiency:** The system treats every HTTP request independently. It has no temporal memory, cannot model state transitions between benign browsing and multi-stage exploits, and lacks sequence models.
+- **Required Additions & Improvements:**
+  1. **Sliding Window Sequence Buffer in Go Proxy:**
+     - Maintain an in-memory ring buffer of the last $W$ feature vectors per IP in [`core/inference/middleware.go`](core/inference/middleware.go) (e.g., $W = 10$ steps: $[X_{t-9}, X_{t-8}, \dots, X_t]$).
+  2. **LSTM / GRU Autoencoder:**
+     - Create `ml/training/train_sequence_model.py`:
+       - Train an **LSTM Autoencoder** in PyTorch on sliding sequence windows of normal traffic of shape `(batch, seq_len=10, features=6)`.
+       - Anomalous sequences yield high reconstruction error (MSE) when sudden transition dynamics occur (e.g., normal probe $\to$ credential stuffing burst).
+  3. **Discrete-Time Markov Chain (DTMC) State Transitions:**
+     - Implement a state transition matrix for attacker phases:
+       $$\text{States: } \{S_0: \text{Unauthenticated}, S_1: \text{Authenticated}, S_2: \text{Scanning}, S_3: \text{Burst Brute-Force}, S_4: \text{Exfiltration}\}$$
+     - Calculate transition probabilities $P(S_{t+1} \mid S_t)$; alert when anomalous low-probability state jumps occur.
+  4. **ONNX Export & Go Inference Integration:**
+     - Export sequence model to `models/sequence_model.onnx` and integrate multi-timestep tensor execution into [`core/inference/inference.go`](core/inference/inference.go).
+
+---
+
+### 13.3 — Forward State Forecasting: Lack of Trajectory Prediction & Attacker Progression Probability
+
+- **Status:** Active / Unresolved (Gap)
+- **SIH Requirement:** *"Forecast future network states and estimate probability of attacker progression"*
+- **Current State:** Completely reactive. The proxy scores current request $X_t$ and triggers `ALLOW`, `RATE_LIMIT`, or `BLOCK` only after thresholds are breached.
+- **Flaw / Deficiency:** The project does not simulate forward states ($X_{t+1} \dots X_{t+5}$) and does not estimate the probability that an attacker will escalate along the kill chain.
+- **Required Additions & Improvements:**
+  1. **Multi-Step Forward Forecasting:**
+     - Implement an autoregressive sequence predictor (LSTM decoder or linear state-space model) to project feature vectors for the next $H$ requests $[\hat{X}_{t+1}, \dots, \hat{X}_{t+5}]$.
+  2. **Attacker Progression Probability ($P_{\text{progression}}$):**
+     - Compute the escalation probability:
+       $$P_{\text{escalation}} = \sigma\left(\mathbf{w}^T \cdot \hat{X}_{t+k} + b\right)$$
+     - Predict the likelihood that an IP in reconnaissance will escalate to brute-force or denial of service.
+  3. **Preemptive / Proactive Enforcement:**
+     - Update [`core/decision/decision_engine.go`](core/decision/decision_engine.go) to support a `PREEMPTIVE_CHALLENGE` action:
+       - If current score is normal ($0.50$), but predicted trajectory reaches $> 0.85$ within 3 requests with progression confidence $> 80\%$, initiate preemptive rate-limiting before backend exhaustion.
+  4. **Forecasting Visualization on Dashboard:**
+     - Expose predicted risk trajectories over the `/api/v1/status` endpoint and render a forward-looking risk chart in `ui/dark_desktop_ui.html`.
+
+---
+
+### 13.4 — Threat Mapping: MITRE ATT&CK Framework Completely Missing from Code
+
+- **Status:** Active / Unresolved (Gap)
+- **SIH Requirement:** *"Map predicted behaviour to recognised attack stages (e.g. MITRE ATT&CK)"*
+- **Current State:** MITRE mapping exists solely as conceptual text in review notes. The codebase contains zero structs, constants, classification logic, or Prometheus labels referencing MITRE ATT&CK.
+- **Flaw / Deficiency:** Disconnect between project documentation claims and codebase implementation.
+- **Required Additions & Improvements:**
+  1. **MITRE ATT&CK Engine (`core/security/mitre.go`):**
+     - Define standardized MITRE enterprise mappings:
+       - **T1595 (Reconnaissance - Active Scanning):** `EndpointEntropy > 0.8 && RequestsPerIP10s > 10 && ErrorRate < 0.2`
+       - **T1110 (Credential Access - Brute Force):** `ErrorRate > 0.5 && RequestsPerIP60s > 30 && Path == "/login"`
+       - **T1498 (Impact - Network Denial of Service):** `RequestsPerIP10s > 50 && LatencySpike == 1.0`
+       - **T1020 (Exfiltration - Automated Exfiltration):** `Path in ["/data/*", "/export"] && Variance < 0.1 && AnomalyScore > 0.7`
+       - **T1046 (Discovery - Network Service Discovery):** Sequential scanning across non-existent endpoints.
+  2. **Integrate into Decision Pipeline:**
+     - Add `Mitre *MitreAttack` field to `decision.Prediction` in [`core/decision/decision_engine.go`](core/decision/decision_engine.go).
+  3. **Prometheus Metrics & Dashboard Badges:**
+     - Add metric: `turbosh_mitre_threats_total{tactic="...", technique="..."}` in [`pipeline/monitoring/metrics.go`](pipeline/monitoring/metrics.go).
+     - Render color-coded MITRE badges (e.g. `[T1110: Brute Force]`) in the Live Threat Detection table on the dashboard UI.
+
+---
+
+### 13.5 — Model Explainability: Absence of Feature Attribution and SHAP
+
+- **Status:** Active / Unresolved (Gap)
+- **SIH Requirement:** *"Provide explainability using attention mechanisms, feature attribution"*
+- **Current State:** The ONNX inference engine outputs a single continuous `float64` anomaly score. No feature contribution values, SHAP values, or attention weights are calculated or logged.
+- **Flaw / Deficiency:** The review claim ("Each anomaly score comes with feature breakdown... Which model is most confident?") is unimplemented.
+- **Required Additions & Improvements:**
+  1. **Real-Time Feature Contribution Breakdown in Go:**
+     - In [`core/inference/features.go`](core/inference/features.go), calculate normalized deviation of each feature against baseline training means:
+       ```go
+       type FeatureAttribution struct {
+           FeatureName  string  `json:"feature_name"`
+           Value        float32 `json:"value"`
+           BaselineMean float32 `json:"baseline_mean"`
+           Contribution float64 `json:"contribution"` // Relative contribution percentage
+       }
+       ```
+     - Output the **Top-3 Anomalous Features** in every decision payload.
+  2. **Offline SHAP Analysis Pipeline:**
+     - Create `ml/evaluation/explain_shap.py` using `shap.TreeExplainer` on trained models.
+     - Generate SHAP summary plots, beeswarm plots, and waterfall charts for audit artifacts.
+  3. **Multi-Model Consensus Scoring:**
+     - Export and run the full ensemble (Isolation Forest, One-Class SVM, LOF) and expose individual model confidence levels alongside the consensus score.
+  4. **Audit Header / Explainability API:**
+     - Expose explainability in response headers or status API:
+       `X-Anomaly-Explain: endpoint_entropy (48%), request_variance (32%)`.
+
+---
+
+### 13.6 — Demonstrable Learning: Static Offline Model Lacking Online Adaptation & Retraining
+
+- **Status:** Active / Unresolved (Gap)
+- **SIH Requirement:** *"Fully open-source solution with demonstrable learning, not just classification"*
+- **Current State:** Models are trained once offline via [`ml/training/train_model.py`](ml/training/train_model.py) on static synthetic CSV data. The Go proxy runs the static `.onnx` model indefinitely without adaptation.
+- **Flaw / Deficiency:** No mechanism to demonstrate learning over time, detect concept drift, or hot-reload models without downtime.
+- **Required Additions & Improvements:**
+  1. **Concept Drift Detection:**
+     - Implement drift detection (e.g., ADWIN or Kolmogorov-Smirnov test) over sliding 24-hour feature windows to flag when traffic distributions shift.
+  2. **Automated Continuous Retraining Script (`scripts/retrain_live.sh`):**
+     - Extract real traffic patterns from `logs/traffic.log`, append labeled edge-cases, run retraining, and convert to ONNX.
+  3. **Zero-Downtime Hot-Reloading in Go Proxy:**
+     - Implement dynamic model swapping in [`core/inference/inference.go`](core/inference/inference.go) using an atomic pointer swap on `Engine.session`.
+  4. **Jury Demonstration Walkthrough:**
+     - Script demonstrating: Baseline traffic $\to$ New attack pattern emerges $\to$ Drift flagged $\to$ Auto-retrain executes $\to$ Model hot-reloaded $\to$ Decision accuracy verified live.
+
+---
+
+### 13.7 — Prioritized SIH Execution Roadmap
+
+```mermaid
+graph TD
+    subgraph Phase 1: High Impact Quick Wins [Phase 1: High-Impact / Days 1-2]
+        A[MITRE ATT&CK Engine in Go] --> B[Real-Time Feature Attribution Top-3]
+        B --> C[Ensemble Multi-Model Output]
+        C --> D[Live MITRE Badges on Web Dashboard]
+    end
+
+    subgraph Phase 2: Sequence & Progression [Phase 2: Core SIH Requirements / Days 2-4]
+        E[Sliding Window Ring Buffer W=10] --> F[PyTorch LSTM Autoencoder / Markov Transitions]
+        F --> G[Forward State Forecasting & Progression Score]
+        G --> H[Preemptive Throttling Action in Decision Engine]
+    end
+
+    subgraph Phase 3: Graphs & Online Learning [Phase 3: Advanced Polish / Days 4-6]
+        I[In-Memory IP-Endpoint Interaction Graph] --> J[Topological Graph Features Degree/Entropy]
+        J --> K[Automated Retraining Loop & Drift Hot-Reload Demo]
+    end
+
+    Phase 1 --> Phase 2 --> Phase 3
+```
+
+---
+
+## 14. Audit Summary Statistics
 
 | Category                                      | Total Identified | Resolved / Closed | Retracted / Invalid | Active Unresolved |
 | :-------------------------------------------- | :--------------: | :---------------: | :-----------------: | :---------------: |
@@ -464,4 +642,7 @@ The following items from the initial audit were verified as **false positives or
 | **Docker, Deployment & Network Issues**       |        4         |         4         |          0          |         0         |
 | **Test & Tooling Flaws**                      |        5         |         5         |          0          |         0         |
 | **Documentation & Code Quality Deficiencies** |        5         |         5         |          0          |         0         |
-| **Total Flaws Audited**                       |      **58**      |      **53**       |        **5**        |       **0**       |
+| **SIH Challenge Requirements & Gaps**         |        6         |         0         |          0          |         6         |
+| **Total Flaws & Gaps Audited**                |      **64**      |      **53**       |        **5**        |       **6**       |
+
+
