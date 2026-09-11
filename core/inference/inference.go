@@ -58,15 +58,20 @@ func NewEngine(modelPath string) (*Engine, error) {
 	// We'll configure the session dynamically to discover types.
 
 	inputNames := []string{"float_input"}
-	outputNames := []string{"label", "score_samples"}
+	outputNames := []string{"label", "scores"}
 
 	// We expect the model to take a tensor of float32, and output:
 	//   - "label": int64 tensor (-1 = anomaly, 1 = normal)
-	//   - "score_samples": float32 tensor (continuous decision_function values)
+	//   - "scores" (or "score_samples"): float32 tensor (continuous decision_function values)
 	// Since we are running dynamically, we don't bind static shapes permanently.
 	session, err := ort.NewDynamicAdvancedSession(absPath, inputNames, outputNames, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load session for model %s: %w", absPath, err)
+		// Fallback to "score_samples" if "scores" is not available in earlier exports
+		outputNames = []string{"label", "score_samples"}
+		session, err = ort.NewDynamicAdvancedSession(absPath, inputNames, outputNames, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load session for model %s: %w", absPath, err)
+		}
 	}
 
 	log.Printf("[inference] Loaded ML model %s successfully", absPath)
