@@ -56,6 +56,11 @@ type Config struct {
 	LogBufferSize int    // Write buffer size in bytes
 	IPSalt        string // Salt used for hashing client IPs for privacy
 
+	// Forecasting settings
+	ForecastingEnabled bool   // Enable state telemetry export for forecasting pipeline
+	StateLogPath       string // Path to state telemetry JSONL file
+	StateLogBufferSize int    // Write buffer size in bytes for state telemetry
+
 	// ML Inference settings
 	ONNXSharedLibraryPath string // Path to the downloaded ONNX Runtime shared library (.so, .dll, .dylib)
 	ModelPath             string // Path to the ONNX anomaly model file
@@ -138,6 +143,11 @@ func Load() *Config {
 		LogFilePath:   envOrDefault("TURBOSH_LOG_FILE_PATH", "logs/traffic.jsonl"),
 		LogBufferSize: envOrDefaultInt("TURBOSH_LOG_BUFFER_SIZE", 4096),
 		IPSalt:        envOrDefault("TURBOSH_IP_SALT", ""),
+
+		// Forecasting
+		ForecastingEnabled: envOrDefaultBool("TURBOSH_FORECASTING_ENABLED", false),
+		StateLogPath:       envOrDefault("TURBOSH_STATE_LOG_PATH", "logs/state_telemetry.jsonl"),
+		StateLogBufferSize: envOrDefaultInt("TURBOSH_STATE_LOG_BUFFER_SIZE", 4096),
 
 		// ML Inference
 		ONNXSharedLibraryPath: envOrDefault("TURBOSH_ONNX_LIB_PATH", ""),

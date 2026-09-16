@@ -41,18 +41,30 @@ type MLProtection struct {
 	window10s time.Duration
 	window60s time.Duration
 
-	cfg *config.Config
-	mu  sync.Mutex
+	stateExporter *StateExporter
+	cfg           *config.Config
+	mu            sync.Mutex
 }
 
 // See pipeline/logging for IP Redaction
 
 // NewMLProtection initializes the live ML-based protection middleware.
 func NewMLProtection(cfg *config.Config, engine *Engine, de decision.DecisionEngine) *MLProtection {
+	var exporter *StateExporter
+	if cfg != nil && cfg.ForecastingEnabled {
+		exp, err := NewStateExporter(cfg.StateLogPath, cfg.StateLogBufferSize)
+		if err != nil {
+			log.Printf("[ML Protection] Warning: failed to initialize StateExporter: %v", err)
+		} else {
+			exporter = exp
+		}
+	}
+
 	return &MLProtection{
 		cfg:            cfg,
 		engine:         engine,
 		decisionEngine: de,
+		stateExporter:  exporter,
 		requests:       make(map[string][]requestRecord),
 		ipStats:        make(map[string][]BackendResponse),
 		window10s:      10 * time.Second,
@@ -290,6 +302,22 @@ func (mlp *MLProtection) Middleware() gin.HandlerFunc {
 
 		action := mlp.decisionEngine.Evaluate(prediction)
 
+		// 3.5 Export state snapshot for forecasting pipeline (async, non-blocking)
+		if mlp.stateExporter != nil {
+			mlp.stateExporter.ExportSnapshot(StateSnapshot{
+				Timestamp:        time.Now().UTC(),
+				IPHash:           ipHash,
+				RequestsPerIP10s: features.RequestsPerIP10s,
+				RequestsPerIP60s: features.RequestsPerIP60s,
+				EndpointEntropy:  features.EndpointEntropy,
+				LatencySpike:     features.LatencySpike,
+				ErrorRate:        features.ErrorRate,
+				RequestVariance:  features.RequestVariance,
+				AnomalyScore:     score,
+				Action:           action.String(),
+			})
+		}
+
 		// 4. Enforce Action
 		switch action {
 		case decision.ActionBlock:
@@ -321,13 +349,36 @@ func (mlp *MLProtection) Middleware() gin.HandlerFunc {
 	}
 }
 
-// Close releases the underlying inference engine session resources.
+// SetStateExporter allows configuring or replacing the StateExporter (e.g., in tests).
+func (m *MLProtection) SetStateExporter(exp *StateExporter) {
+	if m == nil {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stateExporter = exp
+}
+
+// StateExporter returns the current StateExporter instance.
+func (m *MLProtection) StateExporter() *StateExporter {
+	if m == nil {
+		return nil
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.stateExporter
+}
+
+// Close releases the underlying inference engine session resources and flushes state exports.
 func (m *MLProtection) Close() {
 	if m == nil {
 		return
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.stateExporter != nil {
+		_ = m.stateExporter.Close()
+	}
 	if m.engine != nil {
 		m.engine.Close()
 	}
