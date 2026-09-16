@@ -66,6 +66,41 @@ Isolation Forest emerged as the most robust model for our dataset. It effectivel
 
 **Why it lost**: LOF computes local density deviations. While effective for localized anomalies, it struggled slightly to define clear, global decision boundaries for the high variance seen in widespread DDoS attacks without aggressively tuning neighbors.
 
+### 4. LSTM (Long Short-Term Memory)
+  LSTM is a type of recurrent neural network (RNN) that is particularly well-suited for sequence data, such as time series. In time series we learn form the past till the present time 
+
+
+  at each time stamp we have feature vector suppose X† ∈ R∂ . 
+  in which the feature is just a vector in a vector space in R^∂ for e.g suppose∂=3 then the feature is a vector in 3D space . but we have several feture to be extracted through the pipeline that includes : 
+          - source IP: from where the request is coming from in the server
+          - destination IP: to which ip / port the request is going to 
+          - source port: self explainotary
+          - destination port: self explanatory
+          - protocol: through which protocol the request came with tcp , ftp , http(s)…
+          - bytes: how many bytes of data came
+          - packets: how many packets came through
+          - flow duration: duration of entire data flow
+          - packet/byte ratio: self explanatory
+          - bidirectional flow ratio: was there a bidirectional flow of data 
+
+          - IAT ~ Inter-Arrival-Time : the time in between the arrival of two consecutive packets.
+          - IAT mean:vg time between packets
+          - IAT variance:variance of time from the mean time
+          - IAT maximum: maximum time between consecutive packets ~ likely a normal distro
+          
+          
+          - TCP FLAGS :
+          - TTL:TTL is a value in an IP packet that limits how many network hops the packet can travel through.
+          - TTL variance : How much the TTL values vary within a traffic window.
+          - TCP window size : The TCP window tells the sender approximately how much data the receiver is currently willing to accept before requiring further acknowledgements.
+          - fragmentation : splitting of network packets into smaller packets to fit through a threshold. 
+          - payload size: how much data is getting carried by actual packet.
+          - retransmissions: sometimes a packet gets loss in the traffic so , it gets retransmitted.
+          - port access pattern: suppose that one source is behaving like an anomaly and its hopping on ports randomly , that can be the best way to figure out a reconnaissance. 
+
+  these are some features that are going to be used in feature vector for the LSTM/GNN/Transformer. 
+
+  
 ---
 
 ## Conclusion

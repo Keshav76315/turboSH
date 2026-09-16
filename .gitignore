@@ -26,6 +26,8 @@ bin/
 *.dylib
 vendor/
 logs/*.log
+logs/*.jsonl
+!logs/traffic_test.jsonl
 
 # --- Environment ---
 .env
