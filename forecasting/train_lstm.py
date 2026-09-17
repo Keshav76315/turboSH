@@ -194,10 +194,25 @@ def evaluate_test_set(
     evaluator: ForecastEvaluator,
     hmm_model_path: str = "models/forecasting/hmm_model.json",
     mc_model_path: str = "models/forecasting/markov_chain.json",
-) -> Tuple[Dict[int, EvaluationMetrics], Dict[int, EvaluationMetrics], Dict[int, EvaluationMetrics]]:
+) -> Tuple[
+    Dict[int, EvaluationMetrics],
+    Dict[int, EvaluationMetrics],
+    Dict[int, EvaluationMetrics],
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+]:
     """
     Evaluate LSTM, HMM, and Markov Chain models on identical test sequence windows.
-    Returns: (lstm_metrics, hmm_metrics, mc_metrics)
+
+    Returns:
+        A 6-tuple containing:
+          - lstm_metrics: Dict mapping horizon step to EvaluationMetrics for LSTM.
+          - hmm_metrics: Dict mapping horizon step to EvaluationMetrics for Gaussian HMM.
+          - mc_metrics: Dict mapping horizon step to EvaluationMetrics for Markov Chain.
+          - lstm_preds: Array of shape (N, horizon) with predicted stages from LSTM.
+          - hmm_preds_arr: Array of shape (N, horizon) with predicted stages from HMM.
+          - mc_preds_arr: Array of shape (N, horizon) with predicted stages from Markov Chain.
     """
     all_x_scaled = test_dataset.samples_x  # (N, seq_len, 6)
     all_y_true = test_dataset.samples_y    # (N, 3)
@@ -217,8 +232,10 @@ def evaluate_test_set(
         hmm = HMMForecaster.load(hmm_model_path)
     else:
         # Fallback: fit quick HMM
-        hmm = HMMForecaster(n_states=5, n_features=6)
-        hmm.fit([s for s in all_x_unscaled[:10]], [s.tolist() for s in all_y_true[:10, 0]])
+        hmm = HMMForecaster(n_hidden_states=5, n_features=len(FEATURE_NAMES))
+        obs_seqs = [s.tolist() for s in all_x_unscaled[:10]]
+        dummy_stages = [[0] * len(s) for s in obs_seqs]
+        hmm.fit(obs_seqs, dummy_stages)
 
     for i in range(len(all_x_unscaled)):
         obs = all_x_unscaled[i].tolist()
@@ -284,9 +301,68 @@ def generate_v3_report(
     lstm_lead_time_sec: float,
     hmm_lead_time_sec: float,
     mc_lead_time_sec: float,
+    onnx_exported: bool = False,
+    onnx_parity_diff: Optional[float] = None,
 ) -> str:
     """Generate comprehensive GitHub-flavored Markdown evaluation report."""
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    # Dynamic horizon comparison synthesis
+    horizon_comparisons = []
+    horizon_leaders = {}
+
+    for h in [1, 2, 3]:
+        lstm_acc = lstm_metrics[h].accuracy * 100
+        hmm_acc = hmm_metrics[h].accuracy * 100
+        mc_acc = mc_metrics[h].accuracy * 100
+        diff_hmm = lstm_acc - hmm_acc
+        diff_mc = lstm_acc - mc_acc
+
+        # Determine leader(s) at this horizon
+        scores = {"LSTM": lstm_acc, "HMM": hmm_acc, "Markov": mc_acc}
+        max_score = max(scores.values())
+        leaders = [name for name, score in scores.items() if score == max_score]
+        if len(leaders) == 1:
+            lead_tag = f"{leaders[0]} leads"
+        else:
+            lead_tag = f"{' & '.join(leaders)} tie for lead"
+
+        horizon_leaders[h] = lead_tag
+
+        horizon_comparisons.append(
+            f"- **t+{h} Accuracy Comparison**: LSTM {lstm_acc:.2f}% vs HMM {hmm_acc:.2f}% ({diff_hmm:+.2f}%), "
+            f"Markov: {mc_acc:.2f}% ({diff_mc:+.2f}%) — {lead_tag}"
+        )
+
+    leaders_summary = ", ".join([f"t+{h}: {horizon_leaders[h]}" for h in [1, 2, 3]])
+    lstm_leads_count = sum(1 for h in [1, 2, 3] if horizon_leaders[h] == "LSTM leads")
+    lstm_trails_both_all = all(
+        lstm_metrics[h].accuracy < min(hmm_metrics[h].accuracy, mc_metrics[h].accuracy)
+        for h in [1, 2, 3]
+    )
+
+    if lstm_leads_count == 3:
+        status_observation = (
+            "- **Benchmark Observation**: The LSTM world model outperforms both the Markov Chain and Gaussian HMM "
+            f"baselines across all three forecast horizons ({leaders_summary})."
+        )
+    elif lstm_trails_both_all:
+        status_observation = (
+            "- **Benchmark Observation**: In this benchmark on synthetic telemetry, the LSTM serves as an initial deep "
+            f"temporal baseline and currently trails both the Markov Chain and Gaussian HMM baselines across all horizons ({leaders_summary})."
+        )
+    else:
+        status_observation = (
+            f"- **Benchmark Observation**: Model performance varies across horizons ({leaders_summary}), "
+            f"with LSTM leading on {lstm_leads_count}/3 horizons."
+        )
+
+    if onnx_exported and onnx_parity_diff is not None:
+        onnx_summary = f"- **Production Export**: Fully validated ONNX model ready for sub-millisecond Go reverse proxy inference (parity diff: {onnx_parity_diff:.2e})."
+        onnx_table_row = f"| `models/forecasting/forecast_lstm.onnx` | Exported ONNX compute graph | Zero-Python runtime serving | ✅ Validated (diff: {onnx_parity_diff:.2e}) |"
+    else:
+        onnx_summary = "- **Production Export**: ONNX export not performed or pending validation."
+        onnx_table_row = "| `models/forecasting/forecast_lstm.onnx` | Exported ONNX compute graph | Zero-Python runtime serving | ⚪ Not Exported / Pending |"
 
     lines = [
         "# TurboSH V3 — Temporal Intelligence Benchmark Report",
@@ -305,14 +381,14 @@ def generate_v3_report(
         "temporal dependencies across multi-step sliding windows ($L = 100\\text{s}$) and produces direct multi-step horizon "
         "forecasts ($t+1, t+2, t+3$) in a single $<1\\text{ms}$ forward pass.",
         "",
-        "### Key Milestones & Initial Benchmark Observations:",
-        "- **Initial Benchmark Status**: In this initial V3 benchmark on synthetic telemetry, the LSTM serves as a baseline deep architecture. It currently underperforms the Markov Chain and Gaussian HMM baselines across all three horizons.",
-        f"- **t+1 Accuracy Gap**: LSTM {lstm_metrics[1].accuracy * 100:.2f}% vs HMM {hmm_metrics[1].accuracy * 100:.2f}% (Gap: -{(hmm_metrics[1].accuracy - lstm_metrics[1].accuracy) * 100:.2f}%), Markov: {mc_metrics[1].accuracy * 100:.2f}% (Gap: -{(mc_metrics[1].accuracy - lstm_metrics[1].accuracy) * 100:.2f}%)",
-        f"- **t+2 Accuracy Gap**: LSTM {lstm_metrics[2].accuracy * 100:.2f}% vs HMM {hmm_metrics[2].accuracy * 100:.2f}% (Gap: -{(hmm_metrics[2].accuracy - lstm_metrics[2].accuracy) * 100:.2f}%), Markov: {mc_metrics[2].accuracy * 100:.2f}% (Gap: -{(mc_metrics[2].accuracy - lstm_metrics[2].accuracy) * 100:.2f}%)",
-        f"- **t+3 Accuracy Gap**: LSTM {lstm_metrics[3].accuracy * 100:.2f}% vs HMM {hmm_metrics[3].accuracy * 100:.2f}% (Gap: -{(hmm_metrics[3].accuracy - lstm_metrics[3].accuracy) * 100:.2f}%), Markov: {mc_metrics[3].accuracy * 100:.2f}% (Gap: -{(mc_metrics[3].accuracy - lstm_metrics[3].accuracy) * 100:.2f}%)",
+        "### Key Milestones & Benchmark Observations:",
+        status_observation,
+    ]
+    lines.extend(horizon_comparisons)
+    lines.extend([
         f"- **Early Warning Lead Time**: **{lstm_lead_time_sec:.1f} seconds** advance notice before full DDoS volumetric saturation (HMM: {hmm_lead_time_sec:.1f}s, Markov: {mc_lead_time_sec:.1f}s).",
         "- **Explainability Engine**: Gradient-based feature attribution ($<2\\text{ms}$) with automated MITRE ATT&CK mapping.",
-        "- **Production Export**: Fully validated ONNX model ready for sub-millisecond Go reverse proxy inference.",
+        onnx_summary,
         "",
         "---",
         "",
@@ -320,11 +396,11 @@ def generate_v3_report(
         "",
         "| Architecture | Model Family | t+1 Accuracy | t+2 Accuracy | t+3 Accuracy | Macro F1 (t+1) | Mean Lead Time | Inference Latency |",
         "|:-------------|:-------------|:-------------|:-------------|:-------------|:---------------|:---------------|:-------------------|",
-        f"| **Markov Chain** | Discrete Probabilistic | **{mc_metrics[1].accuracy * 100:.2f}%** | **{mc_metrics[2].accuracy * 100:.2f}%** | **{mc_metrics[3].accuracy * 100:.2f}%** | **{mc_metrics[1].f1_macro:.4f}** | {mc_lead_time_sec:.1f}s | < 0.05ms |",
-        f"| **Gaussian HMM** | Generative State-Space | **{hmm_metrics[1].accuracy * 100:.2f}%** | **{hmm_metrics[2].accuracy * 100:.2f}%** | **{hmm_metrics[3].accuracy * 100:.2f}%** | **{hmm_metrics[1].f1_macro:.4f}** | {hmm_lead_time_sec:.1f}s | ~0.80ms |",
-        f"| **LSTM World Model (Initial)** | Deep Recurrent Neural Net | {lstm_metrics[1].accuracy * 100:.2f}% | {lstm_metrics[2].accuracy * 100:.2f}% | {lstm_metrics[3].accuracy * 100:.2f}% | {lstm_metrics[1].f1_macro:.4f} | **{lstm_lead_time_sec:.1f}s** | **~0.35ms (ONNX)** |",
+        f"| **Markov Chain** | Discrete Probabilistic | {mc_metrics[1].accuracy * 100:.2f}% | {mc_metrics[2].accuracy * 100:.2f}% | {mc_metrics[3].accuracy * 100:.2f}% | {mc_metrics[1].f1_macro:.4f} | {mc_lead_time_sec:.1f}s | < 0.05ms |",
+        f"| **Gaussian HMM** | Generative State-Space | {hmm_metrics[1].accuracy * 100:.2f}% | {hmm_metrics[2].accuracy * 100:.2f}% | {hmm_metrics[3].accuracy * 100:.2f}% | {hmm_metrics[1].f1_macro:.4f} | {hmm_lead_time_sec:.1f}s | ~0.80ms |",
+        f"| **LSTM World Model** | Deep Recurrent Neural Net | {lstm_metrics[1].accuracy * 100:.2f}% | {lstm_metrics[2].accuracy * 100:.2f}% | {lstm_metrics[3].accuracy * 100:.2f}% | {lstm_metrics[1].f1_macro:.4f} | {lstm_lead_time_sec:.1f}s | ~0.35ms (ONNX) |",
         "",
-        "> **Benchmark Note:** In this initial V3 benchmark, the baseline Markov Chain and Gaussian HMM achieve higher classification accuracy across all three forecast horizons. The LSTM model represents an initial deep temporal baseline prior to hyperparameter tuning, sequence augmentation, and graph topology integration (planned in V4/V5).",
+        "> **Benchmark Note:** Dynamic multi-horizon metrics above reflect empirical test performance on identical unseen sequences.",
         "",
         "---",
         "",
@@ -332,7 +408,7 @@ def generate_v3_report(
         "",
         "| Horizon Step | Target Offset | Accuracy | Macro Precision | Macro Recall | Macro F1 |",
         "|:-------------|:--------------|:---------|:----------------|:-------------|:---------|",
-    ]
+    ])
 
     for step in [1, 2, 3]:
         m = lstm_metrics[step]
@@ -401,12 +477,12 @@ def generate_v3_report(
         "",
         "## 6. Production Artifacts & Deployment Status",
         "",
-        "| Artifact File | Description | Purpose |",
-        "|:--------------|:------------|:--------|",
-        "| `models/forecasting/lstm_model.pt` | PyTorch model checkpoint | Retraining and offline evaluation |",
-        "| `models/forecasting/forecast_lstm.onnx` | Exported ONNX compute graph | Zero-Python sub-millisecond Go runtime serving |",
-        "| `models/forecasting/scaler.json` | JSON FeatureScaler parameters | Real-time telemetry standardization in proxy |",
-        "| `docs/forecast_evaluation_v3.md` | Benchmark report & scorecard | SIH submission documentation |",
+        "| Artifact File | Description | Purpose | Status |",
+        "|:--------------|:------------|:--------|:-------|",
+        "| `models/forecasting/lstm_model.pt` | PyTorch model checkpoint | Retraining and offline evaluation | ✅ Available |",
+        onnx_table_row,
+        "| `models/forecasting/scaler.json` | JSON FeatureScaler parameters | Real-time telemetry standardization in proxy | ✅ Available |",
+        "| `docs/forecast_evaluation_v3.md` | Benchmark report & scorecard | SIH submission documentation | ✅ Generated |",
         "",
     ])
 
@@ -549,13 +625,21 @@ def main():
             print(f"       [{exp.horizon_label} {exp.stage_name} ({exp.confidence * 100:.1f}%)] Drivers: {top_driver_str}")
 
     # ── 6. ONNX Export ───────────────────────────────────────────────────────
+    onnx_exported = False
+    onnx_diff = None
     if args.export_onnx:
         print("\n[6/6] Exporting trained model to ONNX...")
-        onnx_path = os.path.join(args.output_dir, "forecast_lstm.onnx")
-        export_lstm_to_onnx(model, onnx_path, seq_len=10)
-        is_valid, max_diff = validate_onnx_parity(model, onnx_path, seq_len=10)
-        print(f"       Exported ONNX model: {onnx_path}")
-        print(f"       ONNX Runtime Parity: {'VERIFIED' if is_valid else 'FAILED'} (diff: {max_diff:.6e})")
+        try:
+            onnx_path = os.path.join(args.output_dir, "forecast_lstm.onnx")
+            export_lstm_to_onnx(model, onnx_path, seq_len=10)
+            is_valid, max_diff = validate_onnx_parity(model, onnx_path, seq_len=10)
+            print(f"       Exported ONNX model: {onnx_path}")
+            print(f"       ONNX Runtime Parity: {'VERIFIED' if is_valid else 'FAILED'} (diff: {max_diff:.6e})")
+            if is_valid:
+                onnx_exported = True
+                onnx_diff = max_diff
+        except Exception as e:
+            print(f"       Warning: ONNX export or parity check failed: {e}")
 
     t_end = time.time()
     duration = t_end - t_start
@@ -571,6 +655,8 @@ def main():
             lstm_lead_time_sec=lstm_lead,
             hmm_lead_time_sec=hmm_lead,
             mc_lead_time_sec=mc_lead,
+            onnx_exported=onnx_exported,
+            onnx_parity_diff=onnx_diff,
         )
         print(f"       Report generated at: {args.report}")
 

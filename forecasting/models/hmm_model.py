@@ -19,8 +19,18 @@ class HMMForecaster:
     Observations: D-dimensional continuous network telemetry feature vectors.
     """
 
-    def __init__(self, n_hidden_states: int = 5, n_features: int = len(FEATURE_NAMES)):
-        self.n_states = n_hidden_states
+    def __init__(
+        self,
+        n_hidden_states: Optional[int] = None,
+        n_features: int = len(FEATURE_NAMES),
+        n_states: Optional[int] = None,
+    ):
+        if n_states is not None and n_hidden_states is None:
+            self.n_states = n_states
+        elif n_hidden_states is not None:
+            self.n_states = n_hidden_states
+        else:
+            self.n_states = 5
         self.n_features = n_features
 
         # Initial state distribution pi

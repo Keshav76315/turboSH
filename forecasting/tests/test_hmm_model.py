@@ -83,6 +83,19 @@ class TestHMMForecaster(unittest.TestCase):
         self.assertEqual(loaded.n_features, hmm.n_features)
         np.testing.assert_allclose(loaded.transition_matrix, hmm.transition_matrix)
         np.testing.assert_allclose(loaded.means, hmm.means)
+ 
+    def test_init_parameter_alias(self):
+        """Verify HMMForecaster supports both n_hidden_states and n_states (alias)."""
+        hmm1 = HMMForecaster(n_hidden_states=4, n_features=3)
+        self.assertEqual(hmm1.n_states, 4)
+        self.assertEqual(hmm1.n_features, 3)
+
+        hmm2 = HMMForecaster(n_states=6, n_features=4)
+        self.assertEqual(hmm2.n_states, 6)
+        self.assertEqual(hmm2.n_features, 4)
+
+        hmm3 = HMMForecaster()
+        self.assertEqual(hmm3.n_states, 5)
 
 
 if __name__ == "__main__":
