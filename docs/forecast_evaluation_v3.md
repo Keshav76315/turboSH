@@ -11,11 +11,12 @@
 
 TurboSH Version 3 upgrades the predictive engine to **deep temporal intelligence** using PyTorch LSTM networks. Unlike memoryless Markov Chains and emission-limited Gaussian HMMs, the LSTM model captures protracted non-linear temporal dependencies across multi-step sliding windows ($L = 100\text{s}$) and produces direct multi-step horizon forecasts ($t+1, t+2, t+3$) in a single $<1\text{ms}$ forward pass.
 
-### Key Milestones Achieved:
-- **t+1 Accuracy**: **64.33%** (vs HMM: 66.25%, Markov: 66.25%)
-- **t+2 Accuracy**: **46.83%** (vs HMM: 50.00%, Markov: 50.00%)
-- **t+3 Accuracy**: **44.35%** (vs HMM: 46.01%, Markov: 46.01%)
-- **Early Warning Lead Time**: **12.5 seconds** advance notice before full DDoS volumetric saturation.
+### Key Milestones & Initial Benchmark Observations:
+- **Initial Benchmark Status**: In this initial V3 benchmark on synthetic telemetry, the LSTM serves as a baseline deep architecture. It currently underperforms the Markov Chain and Gaussian HMM baselines across all three horizons.
+- **t+1 Accuracy Gap**: LSTM 64.33% vs HMM 66.25% (Gap: -1.92%), Markov: 66.25% (Gap: -1.92%)
+- **t+2 Accuracy Gap**: LSTM 46.83% vs HMM 50.00% (Gap: -3.17%), Markov: 50.00% (Gap: -3.17%)
+- **t+3 Accuracy Gap**: LSTM 44.35% vs HMM 46.01% (Gap: -1.66%), Markov: 46.01% (Gap: -1.66%)
+- **Early Warning Lead Time**: **12.5 seconds** advance notice before full DDoS volumetric saturation (HMM: 12.3s, Markov: 12.3s).
 - **Explainability Engine**: Gradient-based feature attribution ($<2\text{ms}$) with automated MITRE ATT&CK mapping.
 - **Production Export**: Fully validated ONNX model ready for sub-millisecond Go reverse proxy inference.
 
@@ -25,9 +26,11 @@ TurboSH Version 3 upgrades the predictive engine to **deep temporal intelligence
 
 | Architecture | Model Family | t+1 Accuracy | t+2 Accuracy | t+3 Accuracy | Macro F1 (t+1) | Mean Lead Time | Inference Latency |
 |:-------------|:-------------|:-------------|:-------------|:-------------|:---------------|:---------------|:-------------------|
-| **Markov Chain** | Discrete Probabilistic | 66.25% | 50.00% | 46.01% | 0.6481 | 12.3s | < 0.05ms |
-| **Gaussian HMM** | Generative State-Space | 66.25% | 50.00% | 46.01% | 0.6481 | 12.3s | ~0.80ms |
-| **LSTM World Model** | Deep Recurrent Neural Net | **64.33%** | **46.83%** | **44.35%** | **0.6233** | **12.5s** | **~0.35ms (ONNX)** |
+| **Markov Chain** | Discrete Probabilistic | **66.25%** | **50.00%** | **46.01%** | **0.6481** | 12.3s | < 0.05ms |
+| **Gaussian HMM** | Generative State-Space | **66.25%** | **50.00%** | **46.01%** | **0.6481** | 12.3s | ~0.80ms |
+| **LSTM World Model (Initial)** | Deep Recurrent Neural Net | 64.33% | 46.83% | 44.35% | 0.6233 | **12.5s** | **~0.35ms (ONNX)** |
+
+> **Benchmark Note:** In this initial V3 benchmark, the baseline Markov Chain and Gaussian HMM achieve higher classification accuracy across all three forecast horizons. The LSTM model represents an initial deep temporal baseline prior to hyperparameter tuning, sequence augmentation, and graph topology integration (planned in V4/V5).
 
 ---
 

@@ -252,6 +252,13 @@ class TestMultiStepEvaluator(unittest.TestCase):
         self.assertIn("Model B", report)
         self.assertIn("15.0s", report)
 
+    def test_evaluate_multistep_shape_mismatch(self):
+        y_true = np.array([[0, 1, 2], [1, 2, 3]])
+        y_pred = np.array([[0, 1], [1, 2]])  # Mismatched horizon
+        with self.assertRaises(ValueError) as ctx:
+            self.evaluator.evaluate_multistep(y_true, y_pred)
+        self.assertIn("Shape mismatch", str(ctx.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

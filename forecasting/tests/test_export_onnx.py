@@ -66,3 +66,15 @@ class TestONNXExport:
                 test_input = np.random.randn(b, l, 6).astype(np.float32)
                 output = session.run([output_name], {input_name: test_input})[0]
                 assert output.shape == (b, 3, 5)
+
+    def test_training_mode_preserved_during_export_and_validation(self, model):
+        model.train()  # Explicitly start in training mode
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            onnx_path = os.path.join(tmpdir, "test_mode.onnx")
+
+            export_lstm_to_onnx(model=model, output_path=onnx_path, seq_len=10)
+            assert model.training is True, "export_lstm_to_onnx must preserve model.training state"
+
+            validate_onnx_parity(model=model, onnx_path=onnx_path, seq_len=10)
+            assert model.training is True, "validate_onnx_parity must preserve model.training state"

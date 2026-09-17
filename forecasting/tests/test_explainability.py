@@ -87,3 +87,35 @@ class TestExplainer:
             assert len(exp.mitre_techniques) > 0
             assert "technique_id" in exp.mitre_techniques[0]
             assert "name" in exp.mitre_techniques[0]
+
+    def test_explain_invalid_horizon_step(self, model):
+        explainer = Explainer(model)
+        x = np.random.randn(10, 6).astype(np.float32)
+
+        with pytest.raises(ValueError, match="horizon_step must be between 1 and 3"):
+            explainer.explain(x, horizon_step=0)
+
+        with pytest.raises(ValueError, match="horizon_step must be between 1 and 3"):
+            explainer.explain(x, horizon_step=4)
+
+    def test_attribute_features_preserves_training_state_and_no_param_grads(self, model):
+        model.train()  # Put model into training mode
+        explainer = Explainer(model)
+        x = np.random.randn(10, 6).astype(np.float32)
+
+        attributions = explainer.attribute_features(x, horizon_step=1)
+        assert len(attributions) == 6
+
+        # Verify model training state is preserved
+        assert model.training is True
+
+        # Verify model parameter gradients were not populated
+        for p in model.parameters():
+            assert p.grad is None
+
+    def test_feature_names_mismatch_raises_error(self, model):
+        explainer = Explainer(model, feature_names=["only_one_feature"])
+        x = np.random.randn(10, 6).astype(np.float32)
+
+        with pytest.raises(ValueError, match="Feature count mismatch"):
+            explainer.attribute_features(x, horizon_step=1)

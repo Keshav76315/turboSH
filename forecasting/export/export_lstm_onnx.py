@@ -41,31 +41,35 @@ def export_lstm_to_onnx(
         Absolute path to exported ONNX model.
     """
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    was_training = model.training
     model.eval()
 
-    device = next(model.parameters()).device
-    dummy_input = torch.randn(
-        batch_size, seq_len, model.input_size, dtype=torch.float32, device=device
-    )
+    try:
+        device = next(model.parameters()).device
+        dummy_input = torch.randn(
+            batch_size, seq_len, model.input_size, dtype=torch.float32, device=device
+        )
 
-    torch.onnx.export(
-        model,
-        dummy_input,
-        output_path,
-        export_params=True,
-        opset_version=opset_version,
-        do_constant_folding=True,
-        input_names=["input"],
-        output_names=["output"],
-        dynamic_axes={
-            "input": {0: "batch_size", 1: "seq_len"},
-            "output": {0: "batch_size"},
-        },
-    )
+        torch.onnx.export(
+            model,
+            dummy_input,
+            output_path,
+            export_params=True,
+            opset_version=opset_version,
+            do_constant_folding=True,
+            input_names=["input"],
+            output_names=["output"],
+            dynamic_axes={
+                "input": {0: "batch_size", 1: "seq_len"},
+                "output": {0: "batch_size"},
+            },
+        )
 
-    # Validate ONNX model graph structure
-    onnx_model = onnx.load(output_path)
-    onnx.checker.check_model(onnx_model)
+        # Validate ONNX model graph structure
+        onnx_model = onnx.load(output_path)
+        onnx.checker.check_model(onnx_model)
+    finally:
+        model.train(was_training)
 
     return os.path.abspath(output_path)
 
@@ -90,27 +94,31 @@ def validate_onnx_parity(
     Returns:
         Tuple of (is_parity_verified: bool, max_absolute_difference: float)
     """
+    was_training = model.training
     model.eval()
 
-    # Generate synthetic input
-    test_input = np.random.randn(batch_size, seq_len, model.input_size).astype(np.float32)
+    try:
+        # Generate synthetic input
+        test_input = np.random.randn(batch_size, seq_len, model.input_size).astype(np.float32)
 
-    # PyTorch inference
-    with torch.no_grad():
-        device = next(model.parameters()).device
-        pt_tensor = torch.from_numpy(test_input).to(device)
-        pt_output = model(pt_tensor).cpu().numpy()
+        # PyTorch inference
+        with torch.no_grad():
+            device = next(model.parameters()).device
+            pt_tensor = torch.from_numpy(test_input).to(device)
+            pt_output = model(pt_tensor).cpu().numpy()
 
-    # ONNX Runtime inference
-    session = ort.InferenceSession(onnx_path, providers=["CPUExecutionProvider"])
-    input_name = session.get_inputs()[0].name
-    output_name = session.get_outputs()[0].name
-    ort_output = session.run([output_name], {input_name: test_input})[0]
+        # ONNX Runtime inference
+        session = ort.InferenceSession(onnx_path, providers=["CPUExecutionProvider"])
+        input_name = session.get_inputs()[0].name
+        output_name = session.get_outputs()[0].name
+        ort_output = session.run([output_name], {input_name: test_input})[0]
 
-    max_diff = float(np.max(np.abs(pt_output - ort_output)))
-    is_valid = max_diff < atol
+        max_diff = float(np.max(np.abs(pt_output - ort_output)))
+        is_valid = max_diff < atol
 
-    return is_valid, max_diff
+        return is_valid, max_diff
+    finally:
+        model.train(was_training)
 
 
 def main():

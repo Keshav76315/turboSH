@@ -110,20 +110,28 @@ class Explainer:
         tensor_x = tensor_x.to(device)
         tensor_x.requires_grad_(True)
 
+        was_training = self.model.training
         self.model.eval()
-        self.model.zero_grad()
 
-        # Disable cuDNN optimization during backward in eval mode to avoid RNN backward error
-        with torch.backends.cudnn.flags(enabled=False):
-            logits = self.model(tensor_x)  # Shape: (1, forecast_horizon, num_classes)
+        try:
+            # Disable cuDNN optimization during backward in eval mode to avoid RNN backward error
+            with torch.backends.cudnn.flags(enabled=False):
+                logits = self.model(tensor_x)  # Shape: (1, forecast_horizon, num_classes)
 
-            if target_class is None:
-                target_class = int(torch.argmax(logits[0, h_idx]).item())
+                if target_class is None:
+                    target_class = int(torch.argmax(logits[0, h_idx]).item())
 
-            target_score = logits[0, h_idx, target_class]
-            target_score.backward()
+                target_score = logits[0, h_idx, target_class]
+                grads = torch.autograd.grad(
+                    target_score,
+                    tensor_x,
+                    retain_graph=False,
+                    create_graph=False,
+                )
+                grad = grads[0].detach()  # Shape: (1, seq_len, num_features)
+        finally:
+            self.model.train(was_training)
 
-        grad = tensor_x.grad.detach()  # Shape: (1, seq_len, num_features)
         # Input x Gradient saliency magnitude
         saliency = torch.abs(tensor_x.detach() * grad)
 
@@ -135,6 +143,12 @@ class Explainer:
             normalized = feature_importance / total
         else:
             normalized = np.ones_like(feature_importance) / len(feature_importance)
+
+        if len(self.feature_names) != len(normalized):
+            raise ValueError(
+                f"Feature count mismatch: {len(self.feature_names)} feature names provided, "
+                f"but model produced attributions for {len(normalized)} features"
+            )
 
         return {
             name: float(score)
@@ -183,6 +197,11 @@ class Explainer:
         """
         Produce a comprehensive diagnostic explanation for a specific future horizon step.
         """
+        if horizon_step < 1 or horizon_step > self.model.forecast_horizon:
+            raise ValueError(
+                f"horizon_step must be between 1 and {self.model.forecast_horizon}, got {horizon_step}"
+            )
+
         h_idx = horizon_step - 1
 
         # Step 1: Model inference

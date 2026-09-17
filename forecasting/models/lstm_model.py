@@ -210,7 +210,7 @@ class LSTMForecaster(nn.Module):
         map_location: Optional[str] = "cpu",
     ) -> "LSTMForecaster":
         """Load model architecture and weights from disk."""
-        checkpoint = torch.load(filepath, map_location=map_location, weights_only=False)
+        checkpoint = torch.load(filepath, map_location=map_location, weights_only=True)
         config = checkpoint.get("config", {})
         model = cls(**config)
         model.load_state_dict(checkpoint["state_dict"])

@@ -230,6 +230,11 @@ class ForecastEvaluator:
         pred_arr = np.asarray(y_pred_steps)
         if true_arr.ndim != 2 or pred_arr.ndim != 2:
             raise ValueError("Expected 2D arrays of shape (N, horizon) for multistep evaluation")
+        if true_arr.shape != pred_arr.shape:
+            raise ValueError(
+                f"Shape mismatch in multistep evaluation: true shape {true_arr.shape} "
+                f"does not match pred shape {pred_arr.shape}"
+            )
 
         horizon = true_arr.shape[1]
         results: Dict[int, EvaluationMetrics] = {}

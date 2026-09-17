@@ -246,7 +246,14 @@ def evaluate_test_set(
     mc_preds_arr = np.array(mc_preds_list, dtype=np.int64)
     mc_metrics = evaluator.evaluate_multistep(all_y_true, mc_preds_arr)
 
-    return lstm_metrics, hmm_metrics, mc_metrics
+    return (
+        lstm_metrics,
+        hmm_metrics,
+        mc_metrics,
+        lstm_preds,
+        hmm_preds_arr,
+        mc_preds_arr,
+    )
 
 
 def compute_lead_times(
@@ -263,7 +270,7 @@ def compute_lead_times(
                 break
 
     if not lead_steps:
-        return 10.0
+        return 0.0
     return float(np.mean(lead_steps)) * TIME_STEP_SECONDS
 
 
@@ -298,11 +305,12 @@ def generate_v3_report(
         "temporal dependencies across multi-step sliding windows ($L = 100\\text{s}$) and produces direct multi-step horizon "
         "forecasts ($t+1, t+2, t+3$) in a single $<1\\text{ms}$ forward pass.",
         "",
-        "### Key Milestones Achieved:",
-        f"- **t+1 Accuracy**: **{lstm_metrics[1].accuracy * 100:.2f}%** (vs HMM: {hmm_metrics[1].accuracy * 100:.2f}%, Markov: {mc_metrics[1].accuracy * 100:.2f}%)",
-        f"- **t+2 Accuracy**: **{lstm_metrics[2].accuracy * 100:.2f}%** (vs HMM: {hmm_metrics[2].accuracy * 100:.2f}%, Markov: {mc_metrics[2].accuracy * 100:.2f}%)",
-        f"- **t+3 Accuracy**: **{lstm_metrics[3].accuracy * 100:.2f}%** (vs HMM: {hmm_metrics[3].accuracy * 100:.2f}%, Markov: {mc_metrics[3].accuracy * 100:.2f}%)",
-        f"- **Early Warning Lead Time**: **{lstm_lead_time_sec:.1f} seconds** advance notice before full DDoS volumetric saturation.",
+        "### Key Milestones & Initial Benchmark Observations:",
+        "- **Initial Benchmark Status**: In this initial V3 benchmark on synthetic telemetry, the LSTM serves as a baseline deep architecture. It currently underperforms the Markov Chain and Gaussian HMM baselines across all three horizons.",
+        f"- **t+1 Accuracy Gap**: LSTM {lstm_metrics[1].accuracy * 100:.2f}% vs HMM {hmm_metrics[1].accuracy * 100:.2f}% (Gap: -{(hmm_metrics[1].accuracy - lstm_metrics[1].accuracy) * 100:.2f}%), Markov: {mc_metrics[1].accuracy * 100:.2f}% (Gap: -{(mc_metrics[1].accuracy - lstm_metrics[1].accuracy) * 100:.2f}%)",
+        f"- **t+2 Accuracy Gap**: LSTM {lstm_metrics[2].accuracy * 100:.2f}% vs HMM {hmm_metrics[2].accuracy * 100:.2f}% (Gap: -{(hmm_metrics[2].accuracy - lstm_metrics[2].accuracy) * 100:.2f}%), Markov: {mc_metrics[2].accuracy * 100:.2f}% (Gap: -{(mc_metrics[2].accuracy - lstm_metrics[2].accuracy) * 100:.2f}%)",
+        f"- **t+3 Accuracy Gap**: LSTM {lstm_metrics[3].accuracy * 100:.2f}% vs HMM {hmm_metrics[3].accuracy * 100:.2f}% (Gap: -{(hmm_metrics[3].accuracy - lstm_metrics[3].accuracy) * 100:.2f}%), Markov: {mc_metrics[3].accuracy * 100:.2f}% (Gap: -{(mc_metrics[3].accuracy - lstm_metrics[3].accuracy) * 100:.2f}%)",
+        f"- **Early Warning Lead Time**: **{lstm_lead_time_sec:.1f} seconds** advance notice before full DDoS volumetric saturation (HMM: {hmm_lead_time_sec:.1f}s, Markov: {mc_lead_time_sec:.1f}s).",
         "- **Explainability Engine**: Gradient-based feature attribution ($<2\\text{ms}$) with automated MITRE ATT&CK mapping.",
         "- **Production Export**: Fully validated ONNX model ready for sub-millisecond Go reverse proxy inference.",
         "",
@@ -312,9 +320,11 @@ def generate_v3_report(
         "",
         "| Architecture | Model Family | t+1 Accuracy | t+2 Accuracy | t+3 Accuracy | Macro F1 (t+1) | Mean Lead Time | Inference Latency |",
         "|:-------------|:-------------|:-------------|:-------------|:-------------|:---------------|:---------------|:-------------------|",
-        f"| **Markov Chain** | Discrete Probabilistic | {mc_metrics[1].accuracy * 100:.2f}% | {mc_metrics[2].accuracy * 100:.2f}% | {mc_metrics[3].accuracy * 100:.2f}% | {mc_metrics[1].f1_macro:.4f} | {mc_lead_time_sec:.1f}s | < 0.05ms |",
-        f"| **Gaussian HMM** | Generative State-Space | {hmm_metrics[1].accuracy * 100:.2f}% | {hmm_metrics[2].accuracy * 100:.2f}% | {hmm_metrics[3].accuracy * 100:.2f}% | {hmm_metrics[1].f1_macro:.4f} | {hmm_lead_time_sec:.1f}s | ~0.80ms |",
-        f"| **LSTM World Model** | Deep Recurrent Neural Net | **{lstm_metrics[1].accuracy * 100:.2f}%** | **{lstm_metrics[2].accuracy * 100:.2f}%** | **{lstm_metrics[3].accuracy * 100:.2f}%** | **{lstm_metrics[1].f1_macro:.4f}** | **{lstm_lead_time_sec:.1f}s** | **~0.35ms (ONNX)** |",
+        f"| **Markov Chain** | Discrete Probabilistic | **{mc_metrics[1].accuracy * 100:.2f}%** | **{mc_metrics[2].accuracy * 100:.2f}%** | **{mc_metrics[3].accuracy * 100:.2f}%** | **{mc_metrics[1].f1_macro:.4f}** | {mc_lead_time_sec:.1f}s | < 0.05ms |",
+        f"| **Gaussian HMM** | Generative State-Space | **{hmm_metrics[1].accuracy * 100:.2f}%** | **{hmm_metrics[2].accuracy * 100:.2f}%** | **{hmm_metrics[3].accuracy * 100:.2f}%** | **{hmm_metrics[1].f1_macro:.4f}** | {hmm_lead_time_sec:.1f}s | ~0.80ms |",
+        f"| **LSTM World Model (Initial)** | Deep Recurrent Neural Net | {lstm_metrics[1].accuracy * 100:.2f}% | {lstm_metrics[2].accuracy * 100:.2f}% | {lstm_metrics[3].accuracy * 100:.2f}% | {lstm_metrics[1].f1_macro:.4f} | **{lstm_lead_time_sec:.1f}s** | **~0.35ms (ONNX)** |",
+        "",
+        "> **Benchmark Note:** In this initial V3 benchmark, the baseline Markov Chain and Gaussian HMM achieve higher classification accuracy across all three forecast horizons. The LSTM model represents an initial deep temporal baseline prior to hyperparameter tuning, sequence augmentation, and graph topology integration (planned in V4/V5).",
         "",
         "---",
         "",
@@ -419,8 +429,18 @@ def main():
     parser.add_argument("--patience", type=int, default=6)
     parser.add_argument("--output-dir", type=str, default="models/forecasting")
     parser.add_argument("--report", type=str, default="docs/forecast_evaluation_v3.md")
-    parser.add_argument("--evaluate", action="store_true", default=True)
-    parser.add_argument("--export-onnx", action="store_true", default=True)
+    parser.add_argument(
+        "--evaluate",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Run multi-horizon test evaluation and generate benchmark report",
+    )
+    parser.add_argument(
+        "--export-onnx",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Export trained PyTorch model to ONNX format and validate parity",
+    )
     parser.add_argument("--seed", type=int, default=42)
 
     args = parser.parse_args()
@@ -470,72 +490,67 @@ def main():
     model.save_weights(model_pt_path)
     print(f"       Saved trained PyTorch weights to: {model_pt_path}")
 
-    # ── 3. Multi-Horizon Test Set Evaluation ──────────────────────────────────
-    print("\n[3/6] Running multi-step evaluation on unseen test sequences...")
-    evaluator = ForecastEvaluator(n_states=len(STAGE_NAMES))
-    test_dataset = test_loader.dataset
+    # ── 3. Multi-Horizon Test Set Evaluation & Benchmarks ─────────────────────
+    if args.evaluate:
+        print("\n[3/6] Running multi-step evaluation on unseen test sequences...")
+        evaluator = ForecastEvaluator(n_states=len(STAGE_NAMES))
+        test_dataset = test_loader.dataset
 
-    lstm_metrics, hmm_metrics, mc_metrics = evaluate_test_set(
-        model=model,
-        test_dataset=test_dataset,
-        scaler=scaler,
-        evaluator=evaluator,
-    )
-
-    print(f"       LSTM Accuracy  — t+1: {lstm_metrics[1].accuracy * 100:.2f}% | t+2: {lstm_metrics[2].accuracy * 100:.2f}% | t+3: {lstm_metrics[3].accuracy * 100:.2f}%")
-    print(f"       HMM Accuracy   — t+1: {hmm_metrics[1].accuracy * 100:.2f}% | t+2: {hmm_metrics[2].accuracy * 100:.2f}% | t+3: {hmm_metrics[3].accuracy * 100:.2f}%")
-    print(f"       Markov Chain   — t+1: {mc_metrics[1].accuracy * 100:.2f}% | t+2: {mc_metrics[2].accuracy * 100:.2f}% | t+3: {mc_metrics[3].accuracy * 100:.2f}%")
-
-    # ── 4. Lead-Time Analysis ────────────────────────────────────────────────
-    print("\n[4/6] Analyzing early-warning lead times for surge episodes...")
-    all_y_true = test_dataset.samples_y
-    lstm_preds = model.predict(test_dataset.samples_x)
-
-    all_x_unscaled = scaler.inverse_transform(test_dataset.samples_x)
-    hmm = HMMForecaster.load(os.path.join(args.output_dir, "hmm_model.json"))
-    hmm_preds = np.array([hmm.forecast(x.tolist(), steps=3) for x in all_x_unscaled])
-
-    mc = MarkovChain.load(os.path.join(args.output_dir, "markov_chain.json"))
-    mc_preds = np.array([mc.predict_trajectory(hmm.predict(x.tolist()), steps=3) for x in all_x_unscaled])
-
-    lstm_lead = compute_lead_times(all_y_true, lstm_preds)
-    hmm_lead = compute_lead_times(all_y_true, hmm_preds)
-    mc_lead = compute_lead_times(all_y_true, mc_preds)
-    print(f"       LSTM Lead Time:   {lstm_lead:.1f}s")
-    print(f"       HMM Lead Time:    {hmm_lead:.1f}s")
-    print(f"       Markov Lead Time: {mc_lead:.1f}s")
-
-    # ── 5. Explainability Layer Demonstration ────────────────────────────────
-    print("\n[5/6] Demonstrating Explainability Layer & MITRE ATT&CK Attribution...")
-    explainer = Explainer(model, scaler=scaler)
-
-    # Pick 3 diverse test sequences: Normal (0), Escalation (2), Surge (3)
-    sample_explanations = []
-    target_stages = [AttackStage.NORMAL, AttackStage.ESCALATION, AttackStage.SURGE]
-    found_targets = set()
-
-    for idx in range(len(test_dataset)):
-        stage_target = int(all_y_true[idx, 0])
-        if stage_target in target_stages and stage_target not in found_targets:
-            found_targets.add(stage_target)
-            exp = explainer.explain(test_dataset.samples_x[idx], horizon_step=1)
-            sample_explanations.append(exp)
-            if len(sample_explanations) == 3:
-                break
-
-    # If any target stage wasn't found, pick first samples
-    while len(sample_explanations) < 3 and len(sample_explanations) < len(test_dataset):
-        sample_explanations.append(
-            explainer.explain(test_dataset.samples_x[len(sample_explanations)], horizon_step=1)
+        lstm_metrics, hmm_metrics, mc_metrics, lstm_preds, hmm_preds, mc_preds = evaluate_test_set(
+            model=model,
+            test_dataset=test_dataset,
+            scaler=scaler,
+            evaluator=evaluator,
+            hmm_model_path=os.path.join(args.output_dir, "hmm_model.json"),
+            mc_model_path=os.path.join(args.output_dir, "markov_chain.json"),
         )
 
-    for exp in sample_explanations:
-        top_driver_str = ", ".join([f"{f}: {v * 100:.1f}%" for f, v in exp.top_features[:2]])
-        print(f"       [{exp.horizon_label} {exp.stage_name} ({exp.confidence * 100:.1f}%)] Drivers: {top_driver_str}")
+        print(f"       LSTM Accuracy  — t+1: {lstm_metrics[1].accuracy * 100:.2f}% | t+2: {lstm_metrics[2].accuracy * 100:.2f}% | t+3: {lstm_metrics[3].accuracy * 100:.2f}%")
+        print(f"       HMM Accuracy   — t+1: {hmm_metrics[1].accuracy * 100:.2f}% | t+2: {hmm_metrics[2].accuracy * 100:.2f}% | t+3: {hmm_metrics[3].accuracy * 100:.2f}%")
+        print(f"       Markov Chain   — t+1: {mc_metrics[1].accuracy * 100:.2f}% | t+2: {mc_metrics[2].accuracy * 100:.2f}% | t+3: {mc_metrics[3].accuracy * 100:.2f}%")
 
-    # ── 6. ONNX Export & Report Generation ───────────────────────────────────
+        # ── 4. Lead-Time Analysis ────────────────────────────────────────────
+        print("\n[4/6] Analyzing early-warning lead times for surge episodes...")
+        all_y_true = test_dataset.samples_y
+
+        lstm_lead = compute_lead_times(all_y_true, lstm_preds)
+        hmm_lead = compute_lead_times(all_y_true, hmm_preds)
+        mc_lead = compute_lead_times(all_y_true, mc_preds)
+        print(f"       LSTM Lead Time:   {lstm_lead:.1f}s")
+        print(f"       HMM Lead Time:    {hmm_lead:.1f}s")
+        print(f"       Markov Lead Time: {mc_lead:.1f}s")
+
+        # ── 5. Explainability Layer Demonstration ────────────────────────────
+        print("\n[5/6] Demonstrating Explainability Layer & MITRE ATT&CK Attribution...")
+        explainer = Explainer(model, scaler=scaler)
+
+        # Pick 3 diverse test sequences: Normal (0), Escalation (2), Surge (3)
+        sample_explanations = []
+        target_stages = [AttackStage.NORMAL, AttackStage.ESCALATION, AttackStage.SURGE]
+        found_targets = set()
+
+        for idx in range(len(test_dataset)):
+            stage_target = int(all_y_true[idx, 0])
+            if stage_target in target_stages and stage_target not in found_targets:
+                found_targets.add(stage_target)
+                exp = explainer.explain(test_dataset.samples_x[idx], horizon_step=1)
+                sample_explanations.append(exp)
+                if len(sample_explanations) == 3:
+                    break
+
+        # If any target stage wasn't found, pick first samples
+        while len(sample_explanations) < 3 and len(sample_explanations) < len(test_dataset):
+            sample_explanations.append(
+                explainer.explain(test_dataset.samples_x[len(sample_explanations)], horizon_step=1)
+            )
+
+        for exp in sample_explanations:
+            top_driver_str = ", ".join([f"{f}: {v * 100:.1f}%" for f, v in exp.top_features[:2]])
+            print(f"       [{exp.horizon_label} {exp.stage_name} ({exp.confidence * 100:.1f}%)] Drivers: {top_driver_str}")
+
+    # ── 6. ONNX Export ───────────────────────────────────────────────────────
     if args.export_onnx:
-        print("\n[6/6] Exporting trained model to ONNX & generating benchmark report...")
+        print("\n[6/6] Exporting trained model to ONNX...")
         onnx_path = os.path.join(args.output_dir, "forecast_lstm.onnx")
         export_lstm_to_onnx(model, onnx_path, seq_len=10)
         is_valid, max_diff = validate_onnx_parity(model, onnx_path, seq_len=10)
@@ -545,18 +560,19 @@ def main():
     t_end = time.time()
     duration = t_end - t_start
 
-    generate_v3_report(
-        lstm_metrics=lstm_metrics,
-        hmm_metrics=hmm_metrics,
-        mc_metrics=mc_metrics,
-        explanations=sample_explanations,
-        output_path=args.report,
-        training_duration_sec=duration,
-        lstm_lead_time_sec=lstm_lead,
-        hmm_lead_time_sec=hmm_lead,
-        mc_lead_time_sec=mc_lead,
-    )
-    print(f"       Report generated at: {args.report}")
+    if args.evaluate:
+        generate_v3_report(
+            lstm_metrics=lstm_metrics,
+            hmm_metrics=hmm_metrics,
+            mc_metrics=mc_metrics,
+            explanations=sample_explanations,
+            output_path=args.report,
+            training_duration_sec=duration,
+            lstm_lead_time_sec=lstm_lead,
+            hmm_lead_time_sec=hmm_lead,
+            mc_lead_time_sec=mc_lead,
+        )
+        print(f"       Report generated at: {args.report}")
 
     print("\n" + "=" * 70)
     print(f"  V3 Training & Evaluation Finished in {duration:.2f}s!")
