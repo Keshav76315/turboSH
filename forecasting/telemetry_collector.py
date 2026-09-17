@@ -93,14 +93,22 @@ class TelemetryCollector:
                         time.sleep(poll_interval)
                         continue
 
-                # Check if file was rotated (inode changed)
+                # Check if file was rotated (inode changed or file truncated/recreated)
                 try:
                     curr_stat = os.stat(self.log_path)
-                    if curr_stat.st_ino != last_inode:
+                    # On Windows NTFS, st_ino is often 0 and unreliable.
+                    # Detect rotation via: (1) file shrunk below current read position,
+                    # or (2) inode changed on platforms where inodes are meaningful.
+                    inode_changed = (last_inode != 0 and curr_stat.st_ino != 0 and curr_stat.st_ino != last_inode)
+                    size_regressed = curr_stat.st_size < file_obj.tell()
+                    if inode_changed or size_regressed:
                         logger.info("Log file rotation detected. Reopening %s", self.log_path)
                         file_obj.close()
                         file_obj = open(self.log_path, "r", encoding="utf-8")
-                        last_inode = os.fstat(file_obj.fileno()).st_ino
+                        try:
+                            last_inode = os.fstat(file_obj.fileno()).st_ino
+                        except OSError:
+                            last_inode = 0
                 except FileNotFoundError:
                     pass
 

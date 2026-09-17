@@ -457,21 +457,21 @@ The following items from the initial audit were verified as **false positives or
 
 ### SIH Challenge Requirements Scorecard
 
-| # | SIH Challenge Requirement | Documentation / Review Claim | Actual Codebase Reality | Status / Gap Level |
-|---|---|---|---|---|
-| **13.1** | **State Representation (Vectors & Graphs)** | "6D Feature vector; could extend to graph" | 6D tabular vector in [`core/inference/features.go`](core/inference/features.go). **Zero graph representations exist.** | 🟡 **Partial** (Vector exists, Graph missing) |
-| **13.2** | **State-Transition Dynamics (LSTM, Transformer, GNN)** | "Could extend to LSTM; current ensemble" | Only static **Isolation Forest** served in Go ONNX. OC-SVM/LOF only tuned in Python. **No sequence model exists.** | 🔴 **Major Gap** (Purely static point-in-time) |
-| **13.3** | **Forecast Future States & Attacker Progression** | "Does this partially; predict next 5 requests" | **Purely reactive.** Scores $X_t$ in [`core/inference/middleware.go`](core/inference/middleware.go). **No forward simulation or progression probabilities.** | 🔴 **Major Gap** (No forecasting implemented) |
-| **13.4** | **Map Behaviour to MITRE ATT&CK Stages** | "Current feature patterns map to MITRE stages" | Conceptual mapping only. **Zero MITRE ATT&CK code, structs, or metric labels exist.** | 🔴 **Missing in Code** (High-impact win) |
-| **13.5** | **Explainability (Attention, Feature Attribution)** | "Each score comes with feature breakdown" | Engine returns a single scalar `float64`. **No SHAP, feature attribution, or model confidence breakdown.** | 🔴 **Missing in Code** (High-impact win) |
-| **13.6** | **Demonstrable Learning (Not Just Static Classifier)** | "Learns dynamics; continually rescored" | Offline batch training in [`ml/training/train_model.py`](ml/training/train_model.py). **No online learning, drift detection, or retraining loop.** | 🟡 **Partial** (Static trained model) |
+| #        | SIH Challenge Requirement                              | Documentation / Review Claim                   | Actual Codebase Reality                                                                                                                                      | Status / Gap Level                             |
+| -------- | ------------------------------------------------------ | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| **13.1** | **State Representation (Vectors & Graphs)**            | "6D Feature vector; could extend to graph"     | 6D tabular vector in [`core/inference/features.go`](core/inference/features.go). **Zero graph representations exist.**                                       | 🟡 **Partial** (Vector exists, Graph missing)  |
+| **13.2** | **State-Transition Dynamics (LSTM, Transformer, GNN)** | "Could extend to LSTM; current ensemble"       | Only static **Isolation Forest** served in Go ONNX. OC-SVM/LOF only tuned in Python. **No sequence model exists.**                                           | 🔴 **Major Gap** (Purely static point-in-time) |
+| **13.3** | **Forecast Future States & Attacker Progression**      | "Does this partially; predict next 5 requests" | **Purely reactive.** Scores $X_t$ in [`core/inference/middleware.go`](core/inference/middleware.go). **No forward simulation or progression probabilities.** | 🔴 **Major Gap** (No forecasting implemented)  |
+| **13.4** | **Map Behaviour to MITRE ATT&CK Stages**               | "Current feature patterns map to MITRE stages" | Conceptual mapping only. **Zero MITRE ATT&CK code, structs, or metric labels exist.**                                                                        | 🔴 **Missing in Code** (High-impact win)       |
+| **13.5** | **Explainability (Attention, Feature Attribution)**    | "Each score comes with feature breakdown"      | Engine returns a single scalar `float64`. **No SHAP, feature attribution, or model confidence breakdown.**                                                   | 🔴 **Missing in Code** (High-impact win)       |
+| **13.6** | **Demonstrable Learning (Not Just Static Classifier)** | "Learns dynamics; continually rescored"        | Offline batch training in [`ml/training/train_model.py`](ml/training/train_model.py). **No online learning, drift detection, or retraining loop.**           | 🟡 **Partial** (Static trained model)          |
 
 ---
 
 ### 13.1 — Network State Representation: Lack of Graph-Based Modeling
 
 - **Status:** Active / Unresolved (Gap)
-- **SIH Requirement:** *"Represent network state using feature vectors or graphs"*
+- **SIH Requirement:** _"Represent network state using feature vectors or graphs"_
 - **Current State:** The proxy extracts a 6-dimensional tabular vector per client IP (`requests_per_ip_10s`, `requests_per_ip_60s`, `endpoint_entropy`, `latency_spike`, `error_rate`, `request_variance`) in [`core/inference/features.go`](core/inference/features.go).
 - **Flaw / Deficiency:** The SIH challenge specifically calls for graph representations or feature vectors. turboSH has zero graph data structures, topological metrics, or adjacency mappings.
 - **Required Additions & Improvements:**
@@ -492,7 +492,7 @@ The following items from the initial audit were verified as **false positives or
 ### 13.2 — State-Transition Dynamics: Absence of Sequence Models (LSTM / Transformer / GNN)
 
 - **Status:** Active / Unresolved (Gap)
-- **SIH Requirement:** *"Learn state-transition dynamics using sequence models (LSTM, Transformer, GNN)"*
+- **SIH Requirement:** _"Learn state-transition dynamics using sequence models (LSTM, Transformer, GNN)"_
 - **Current State:** turboSH uses static point-in-time anomaly detection. Only a single scikit-learn `IsolationForest` model is loaded and executed via ONNX in [`core/inference/inference.go`](core/inference/inference.go). OC-SVM and LOF are merely benchmarked during offline GridSearch and never executed in Go.
 - **Flaw / Deficiency:** The system treats every HTTP request independently. It has no temporal memory, cannot model state transitions between benign browsing and multi-stage exploits, and lacks sequence models.
 - **Required Additions & Improvements:**
@@ -514,7 +514,7 @@ The following items from the initial audit were verified as **false positives or
 ### 13.3 — Forward State Forecasting: Lack of Trajectory Prediction & Attacker Progression Probability
 
 - **Status:** Active / Unresolved (Gap)
-- **SIH Requirement:** *"Forecast future network states and estimate probability of attacker progression"*
+- **SIH Requirement:** _"Forecast future network states and estimate probability of attacker progression"_
 - **Current State:** Completely reactive. The proxy scores current request $X_t$ and triggers `ALLOW`, `RATE_LIMIT`, or `BLOCK` only after thresholds are breached.
 - **Flaw / Deficiency:** The project does not simulate forward states ($X_{t+1} \dots X_{t+5}$) and does not estimate the probability that an attacker will escalate along the kill chain.
 - **Required Additions & Improvements:**
@@ -535,7 +535,7 @@ The following items from the initial audit were verified as **false positives or
 ### 13.4 — Threat Mapping: MITRE ATT&CK Framework Completely Missing from Code
 
 - **Status:** Active / Unresolved (Gap)
-- **SIH Requirement:** *"Map predicted behaviour to recognised attack stages (e.g. MITRE ATT&CK)"*
+- **SIH Requirement:** _"Map predicted behaviour to recognised attack stages (e.g. MITRE ATT&CK)"_
 - **Current State:** MITRE mapping exists solely as conceptual text in review notes. The codebase contains zero structs, constants, classification logic, or Prometheus labels referencing MITRE ATT&CK.
 - **Flaw / Deficiency:** Disconnect between project documentation claims and codebase implementation.
 - **Required Additions & Improvements:**
@@ -557,7 +557,7 @@ The following items from the initial audit were verified as **false positives or
 ### 13.5 — Model Explainability: Absence of Feature Attribution and SHAP
 
 - **Status:** Active / Unresolved (Gap)
-- **SIH Requirement:** *"Provide explainability using attention mechanisms, feature attribution"*
+- **SIH Requirement:** _"Provide explainability using attention mechanisms, feature attribution"_
 - **Current State:** The ONNX inference engine outputs a single continuous `float64` anomaly score. No feature contribution values, SHAP values, or attention weights are calculated or logged.
 - **Flaw / Deficiency:** The review claim ("Each anomaly score comes with feature breakdown... Which model is most confident?") is unimplemented.
 - **Required Additions & Improvements:**
@@ -586,7 +586,7 @@ The following items from the initial audit were verified as **false positives or
 ### 13.6 — Demonstrable Learning: Static Offline Model Lacking Online Adaptation & Retraining
 
 - **Status:** Active / Unresolved (Gap)
-- **SIH Requirement:** *"Fully open-source solution with demonstrable learning, not just classification"*
+- **SIH Requirement:** _"Fully open-source solution with demonstrable learning, not just classification"_
 - **Current State:** Models are trained once offline via [`ml/training/train_model.py`](ml/training/train_model.py) on static synthetic CSV data. The Go proxy runs the static `.onnx` model indefinitely without adaptation.
 - **Flaw / Deficiency:** No mechanism to demonstrate learning over time, detect concept drift, or hot-reload models without downtime.
 - **Required Additions & Improvements:**
@@ -644,5 +644,3 @@ graph TD
 | **Documentation & Code Quality Deficiencies** |        5         |         5         |          0          |         0         |
 | **SIH Challenge Requirements & Gaps**         |        6         |         0         |          0          |         6         |
 | **Total Flaws & Gaps Audited**                |      **64**      |      **53**       |        **5**        |       **6**       |
-
-

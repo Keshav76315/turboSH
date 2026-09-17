@@ -170,6 +170,7 @@ try {
     $env:TURBOSH_RATE_LIMIT_CAPACITY = "500"
     $env:TURBOSH_RATE_LIMIT_RATE = "250.0"
     $env:TURBOSH_BURST_THRESHOLD = "300"
+    $env:TURBOSH_FORECASTING_ENABLED = "true"
 
     $turboshProc = Start-Process -FilePath $turboshBin `
         -WorkingDirectory $RootDir `
