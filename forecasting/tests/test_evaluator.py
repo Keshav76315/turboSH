@@ -181,5 +181,77 @@ class TestEvaluationMetrics(unittest.TestCase):
         self.assertAlmostEqual(per_class[2], 0.5)
 
 
+class TestMultiStepEvaluator(unittest.TestCase):
+    """Test multi-step evaluation, horizon degradation curves, and model comparison."""
+
+    def setUp(self):
+        from forecasting.evaluation.evaluator import ForecastEvaluator
+        self.evaluator = ForecastEvaluator(n_states=5)
+
+    def test_evaluate_multistep(self):
+        y_true = np.array([
+            [0, 1, 2],
+            [1, 2, 3],
+            [2, 3, 4],
+            [0, 0, 1],
+        ])
+        y_pred = np.array([
+            [0, 1, 1],  # step 3 wrong
+            [1, 2, 3],  # all correct
+            [2, 3, 4],  # all correct
+            [0, 1, 1],  # step 2 wrong
+        ])
+
+        results = self.evaluator.evaluate_multistep(y_true, y_pred)
+        self.assertEqual(len(results), 3)
+        self.assertIn(1, results)
+        self.assertIn(2, results)
+        self.assertIn(3, results)
+
+        # Step 1: 4/4 correct
+        self.assertEqual(results[1].accuracy, 1.0)
+        # Step 2: 3/4 correct
+        self.assertEqual(results[2].accuracy, 0.75)
+        # Step 3: 3/4 correct
+        self.assertEqual(results[3].accuracy, 0.75)
+
+    def test_accuracy_vs_horizon_curve(self):
+        y_true = np.array([[0, 1, 2], [1, 2, 3]])
+        y_pred = np.array([[0, 1, 1], [1, 2, 3]])
+        results = self.evaluator.evaluate_multistep(y_true, y_pred)
+
+        curve = self.evaluator.accuracy_vs_horizon_curve(results)
+        self.assertEqual(len(curve), 3)
+        self.assertEqual(curve[0]["horizon_label"], "t+1")
+        self.assertEqual(curve[1]["horizon_label"], "t+2")
+        self.assertEqual(curve[2]["horizon_label"], "t+3")
+        self.assertIn("accuracy", curve[0])
+        self.assertIn("f1_macro", curve[0])
+
+    def test_compare_models(self):
+        y_true = np.array([[0, 1, 2], [1, 2, 3]])
+        y_pred = np.array([[0, 1, 1], [1, 2, 3]])
+        multistep = self.evaluator.evaluate_multistep(y_true, y_pred)
+
+        comparison_data = {
+            "Model A": {
+                "multistep": multistep,
+                "f1_macro": 0.85,
+                "mean_lead_time_seconds": 15.0,
+            },
+            "Model B": {
+                "multistep": [0.80, 0.70, 0.60],
+                "f1_macro": 0.75,
+                "mean_lead_time_seconds": 10.0,
+            },
+        }
+
+        report = self.evaluator.compare_models(comparison_data)
+        self.assertIn("# Model Comparison Benchmark", report)
+        self.assertIn("Model A", report)
+        self.assertIn("Model B", report)
+        self.assertIn("15.0s", report)
+
+
 if __name__ == "__main__":
     unittest.main()

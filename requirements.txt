@@ -12,6 +12,8 @@ scipy>=1.10.0
 
 # --- ML Models ---
 # Isolation Forest, One-Class SVM, LOF are in scikit-learn
+# Sequence modeling & Deep Temporal Intelligence (V3)
+torch>=2.0.0
 # ONNX export
 onnx>=1.14.0
 skl2onnx>=1.15.0

@@ -210,10 +210,113 @@ class ForecastEvaluator:
             lines.append(f"| **{name} ({s_true})** | {cols_str} |")
 
         report_content = "\n".join(lines) + "\n"
-
         if output_path:
             os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(report_content)
 
         return report_content
+
+    def evaluate_multistep(
+        self,
+        y_true_steps: Any,
+        y_pred_steps: Any,
+    ) -> Dict[int, EvaluationMetrics]:
+        """
+        Evaluate multi-step forecast accuracy independently for each horizon step (1, 2, 3).
+        Returns a dict mapping horizon step (1-indexed) to EvaluationMetrics.
+        """
+        true_arr = np.asarray(y_true_steps)
+        pred_arr = np.asarray(y_pred_steps)
+        if true_arr.ndim != 2 or pred_arr.ndim != 2:
+            raise ValueError("Expected 2D arrays of shape (N, horizon) for multistep evaluation")
+
+        horizon = true_arr.shape[1]
+        results: Dict[int, EvaluationMetrics] = {}
+        for h in range(horizon):
+            step_true = true_arr[:, h].tolist()
+            step_pred = pred_arr[:, h].tolist()
+            results[h + 1] = self.evaluate(step_true, step_pred)
+
+        return results
+
+    def accuracy_vs_horizon_curve(
+        self,
+        multistep_metrics: Dict[int, EvaluationMetrics],
+    ) -> List[Dict[str, Any]]:
+        """Compute performance trajectory across forecasting horizons."""
+        curve: List[Dict[str, Any]] = []
+        for step in sorted(multistep_metrics.keys()):
+            m = multistep_metrics[step]
+            curve.append({
+                "horizon_step": step,
+                "horizon_label": f"t+{step}",
+                "accuracy": m.accuracy,
+                "f1_macro": m.f1_macro,
+                "precision_macro": m.precision_macro,
+                "recall_macro": m.recall_macro,
+            })
+        return curve
+
+    def compare_models(
+        self,
+        results: Dict[str, Dict[str, Any]],
+        output_path: Optional[str] = None,
+    ) -> str:
+        """
+        Generate a Markdown comparison table across multiple models.
+        `results` format:
+        {
+            "Model Name": {
+                "multistep": Dict[int, EvaluationMetrics],  # or list of floats
+                "f1_macro": float (optional if in multistep[1]),
+                "mean_lead_time_seconds": float (optional),
+            }
+        }
+        """
+        lines = [
+            "# Model Comparison Benchmark",
+            "",
+            "| Model | t+1 Accuracy | t+2 Accuracy | t+3 Accuracy | Macro F1 (t+1) | Mean Lead Time |",
+            "|:------|:-------------|:-------------|:-------------|:---------------|:---------------|",
+        ]
+
+        for model_name, data in results.items():
+            multistep = data.get("multistep", {})
+            # Handle dictionary of EvaluationMetrics or raw dicts/floats
+            if isinstance(multistep, dict):
+                m1 = multistep.get(1)
+                m2 = multistep.get(2)
+                m3 = multistep.get(3)
+
+                acc_1 = f"{m1.accuracy * 100:.2f}%" if isinstance(m1, EvaluationMetrics) else f"{float(m1) * 100:.2f}%" if m1 is not None else "N/A"
+                acc_2 = f"{m2.accuracy * 100:.2f}%" if isinstance(m2, EvaluationMetrics) else f"{float(m2) * 100:.2f}%" if m2 is not None else "N/A"
+                acc_3 = f"{m3.accuracy * 100:.2f}%" if isinstance(m3, EvaluationMetrics) else f"{float(m3) * 100:.2f}%" if m3 is not None else "N/A"
+
+                f1_val = data.get("f1_macro")
+                if f1_val is None and isinstance(m1, EvaluationMetrics):
+                    f1_val = m1.f1_macro
+                f1_str = f"{float(f1_val):.4f}" if f1_val is not None else "N/A"
+            elif isinstance(multistep, (list, tuple)):
+                acc_1 = f"{float(multistep[0]) * 100:.2f}%" if len(multistep) > 0 else "N/A"
+                acc_2 = f"{float(multistep[1]) * 100:.2f}%" if len(multistep) > 1 else "N/A"
+                acc_3 = f"{float(multistep[2]) * 100:.2f}%" if len(multistep) > 2 else "N/A"
+                f1_val = data.get("f1_macro")
+                f1_str = f"{float(f1_val):.4f}" if f1_val is not None else "N/A"
+            else:
+                acc_1, acc_2, acc_3, f1_str = "N/A", "N/A", "N/A", "N/A"
+
+            lead_sec = data.get("mean_lead_time_seconds", data.get("lead_time_seconds"))
+            lead_str = f"{float(lead_sec):.1f}s" if lead_sec is not None else "N/A"
+
+            lines.append(
+                f"| **{model_name}** | {acc_1} | {acc_2} | {acc_3} | {f1_str} | {lead_str} |"
+            )
+
+        report = "\n".join(lines) + "\n"
+        if output_path:
+            os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(report)
+
+        return report
