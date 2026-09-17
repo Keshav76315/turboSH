@@ -5,7 +5,7 @@ Usage:
     python -m forecasting.train_hmm [--data DATA_DIR] [--output OUTPUT_DIR] [--report REPORT_PATH]
 
 This script:
-  1. Generates synthetic labeled training data (or loads from JSONL if available).
+  1. Generates synthetic labeled training data.
   2. Fits both MarkovChain and HMMForecaster models.
   3. Evaluates next-step and multi-step accuracy.
   4. Serializes model artifacts to JSON.
@@ -265,6 +265,11 @@ def train_and_evaluate(
             "per_class": {STAGE_NAMES[k]: {m: round(v, 4) for m, v in metrics.items()} for k, metrics in hmm_per_class.items()},
             "confusion_matrix": hmm_cm.tolist(),
         },
+        "artifact_paths": {
+            "markov_chain": mc_path,
+            "hmm_model": hmm_path,
+            "labeled_dataset": csv_path,
+        },
     }
 
     _write_evaluation_report(results, report_path, mc_cm, hmm_cm)
@@ -368,9 +373,9 @@ into the future, using only observations up to the midpoint of each test sequenc
 
 | Model | Path | Status |
 |---|---|---|
-| Markov Chain | `models/forecasting/markov_chain.json` | ✅ Saved |
-| Gaussian HMM | `models/forecasting/hmm_model.json` | ✅ Saved |
-| Labeled Dataset | `datasets/labeled_states.csv` | ✅ Exported |
+| Markov Chain | `{results['artifact_paths']['markov_chain']}` | ✅ Saved |
+| Gaussian HMM | `{results['artifact_paths']['hmm_model']}` | ✅ Saved |
+| Labeled Dataset | `{results['artifact_paths']['labeled_dataset']}` | ✅ Exported |
 
 ---
 

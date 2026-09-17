@@ -80,6 +80,7 @@ class TelemetryCollector:
         last_flush = time.time()
         file_obj = None
         last_inode = None
+        last_ctime = 0.0
 
         try:
             while self._running:
@@ -87,28 +88,37 @@ class TelemetryCollector:
                 if not file_obj:
                     if os.path.exists(self.log_path):
                         file_obj = open(self.log_path, "r", encoding="utf-8")
-                        last_inode = os.fstat(file_obj.fileno()).st_ino
+                        init_stat = os.fstat(file_obj.fileno())
+                        last_inode = init_stat.st_ino
+                        last_ctime = init_stat.st_ctime
                         logger.info("Opened telemetry log file %s", self.log_path)
                     else:
                         time.sleep(poll_interval)
                         continue
 
-                # Check if file was rotated (inode changed or file truncated/recreated)
+                # Check if file was rotated (inode changed, file truncated, or recreated)
                 try:
                     curr_stat = os.stat(self.log_path)
                     # On Windows NTFS, st_ino is often 0 and unreliable.
-                    # Detect rotation via: (1) file shrunk below current read position,
-                    # or (2) inode changed on platforms where inodes are meaningful.
+                    # Detect rotation via multiple signals:
+                    # (1) inode changed on platforms where inodes are meaningful,
+                    # (2) file shrunk below current read position,
+                    # (3) creation time changed (catches replacement files that
+                    #     have already grown past the previous offset on Windows).
                     inode_changed = (last_inode != 0 and curr_stat.st_ino != 0 and curr_stat.st_ino != last_inode)
                     size_regressed = curr_stat.st_size < file_obj.tell()
-                    if inode_changed or size_regressed:
+                    ctime_changed = (last_ctime != 0.0 and curr_stat.st_ctime != last_ctime)
+                    if inode_changed or size_regressed or ctime_changed:
                         logger.info("Log file rotation detected. Reopening %s", self.log_path)
                         file_obj.close()
                         file_obj = open(self.log_path, "r", encoding="utf-8")
                         try:
-                            last_inode = os.fstat(file_obj.fileno()).st_ino
+                            new_stat = os.fstat(file_obj.fileno())
+                            last_inode = new_stat.st_ino
+                            last_ctime = new_stat.st_ctime
                         except OSError:
                             last_inode = 0
+                            last_ctime = 0.0
                 except FileNotFoundError:
                     pass
 

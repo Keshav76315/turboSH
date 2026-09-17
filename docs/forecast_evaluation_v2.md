@@ -1,7 +1,7 @@
 # TurboSH V2 — Forecast Evaluation Report
 
-> Generated: 2026-09-17T18:04:24.241585+00:00
-> Training time: 0.4s
+> Generated: 2026-09-17T18:13:41.454338+00:00
+> Training time: 0.49s
 
 ## Dataset Summary
 
@@ -79,9 +79,9 @@ into the future, using only observations up to the midpoint of each test sequenc
 
 | Model | Path | Status |
 |---|---|---|
-| Markov Chain | `models/forecasting/markov_chain.json` | ✅ Saved |
-| Gaussian HMM | `models/forecasting/hmm_model.json` | ✅ Saved |
-| Labeled Dataset | `datasets/labeled_states.csv` | ✅ Exported |
+| Markov Chain | `models/forecasting\markov_chain.json` | ✅ Saved |
+| Gaussian HMM | `models/forecasting\hmm_model.json` | ✅ Saved |
+| Labeled Dataset | `datasets\labeled_states.csv` | ✅ Exported |
 
 ---
 
