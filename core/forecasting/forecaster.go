@@ -96,10 +96,15 @@ func NewForecaster(modelPath, scalerPath string, bufferCap int) (*Forecaster, er
 		}
 	}
 
+	seqLen := bufferCap
+	if seqLen < 1 {
+		seqLen = 1
+	}
+
 	f := &Forecaster{
 		scaler:    scaler,
 		bufferCap: bufferCap,
-		seqLen:    10, // Default window for LSTM / Transformer
+		seqLen:    seqLen,
 		buffer:    make([]inference.StateSnapshot, 0, bufferCap),
 	}
 
@@ -130,6 +135,16 @@ func NewForecaster(modelPath, scalerPath string, bufferCap int) (*Forecaster, er
 	f.modelLoaded = true
 	log.Printf("[Forecaster] Successfully loaded forecast model: %s", absPath)
 	return f, nil
+}
+
+// IsModelLoaded reports whether the ONNX sequence model is successfully initialized and loaded.
+func (f *Forecaster) IsModelLoaded() bool {
+	if f == nil {
+		return false
+	}
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	return f.modelLoaded
 }
 
 // Close releases any allocated ONNX session resources.

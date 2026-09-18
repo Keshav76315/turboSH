@@ -224,8 +224,9 @@ class LeadTimeEvaluator:
                 # Check confidence threshold if probabilities are available
                 if predicted_attack and pred_proba is not None:
                     proba = pred_proba[idx, 0] if pred_proba.ndim == 3 else pred_proba[idx]
-                    max_conf = float(np.max(proba))
-                    if max_conf < min_conf:
+                    predicted_stage = int(t1_pred[idx])
+                    stage_conf = float(proba[predicted_stage]) if 0 <= predicted_stage < len(proba) else float(np.max(proba))
+                    if stage_conf < min_conf:
                         predicted_attack = False
 
                 if predicted_attack:
@@ -254,14 +255,18 @@ class LeadTimeEvaluator:
         self,
         true_stages: np.ndarray,
         pred_stages: np.ndarray,
+        valid_detections: Optional[List[DetectionResult]] = None,
     ) -> FalseAlarmMetrics:
         """
         Compute false alarm rate: fraction of non-attack windows where the
-        model incorrectly predicts an attack.
+        model incorrectly predicts an attack outside of valid early detection windows.
 
         Args:
             true_stages: (N, horizon) ground truth.
             pred_stages: (N, horizon) model predictions.
+            valid_detections: Optional list of DetectionResult from evaluate_detections.
+                             If provided, predictions that qualify as valid early
+                             detections are excluded from false alarms.
 
         Returns:
             FalseAlarmMetrics with rate and per-stage breakdown.
@@ -281,7 +286,20 @@ class LeadTimeEvaluator:
                 false_alarm_by_stage={},
             )
 
-        false_alarm_mask = non_attack_mask & (t1_pred >= threshold)
+        # Exclude predictions that qualify as valid early detections in evaluate_detections
+        valid_indices = set()
+        if valid_detections is not None:
+            for d in valid_detections:
+                if d.detected and d.first_correct_idx is not None:
+                    # Valid early detection window: from first_correct_idx to episode onset
+                    for idx in range(d.first_correct_idx, d.episode.onset_idx):
+                        valid_indices.add(idx)
+
+        false_alarm_mask = np.zeros(len(t1_pred), dtype=bool)
+        for i in range(len(t1_pred)):
+            if non_attack_mask[i] and t1_pred[i] >= threshold and i not in valid_indices:
+                false_alarm_mask[i] = True
+
         false_alarms = int(np.sum(false_alarm_mask))
 
         # Per-stage breakdown
@@ -289,7 +307,7 @@ class LeadTimeEvaluator:
         for stage in range(len(STAGE_NAMES)):
             if stage >= threshold:
                 fa_by_stage[stage] = int(np.sum(
-                    non_attack_mask & (t1_pred == stage)
+                    false_alarm_mask & (t1_pred == stage)
                 ))
 
         return FalseAlarmMetrics(
@@ -320,7 +338,7 @@ class LeadTimeEvaluator:
         """
         episodes = self.detect_episodes(true_stages)
         detections = self.evaluate_detections(true_stages, pred_stages, pred_proba)
-        false_alarms = self.compute_false_alarms(true_stages, pred_stages)
+        false_alarms = self.compute_false_alarms(true_stages, pred_stages, valid_detections=detections)
 
         detected_leads = [d.lead_time_steps for d in detections if d.detected]
         detected_count = len(detected_leads)

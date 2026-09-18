@@ -1,6 +1,6 @@
 //go:build !cgo
 
-package forecasting.go
+package forecasting
 
 import (
 	"encoding/json"
@@ -80,13 +80,22 @@ func NewForecaster(modelPath, scalerPath string, bufferCap int) (*Forecaster, er
 	if bufferCap <= 0 {
 		bufferCap = 30
 	}
+	seqLen := bufferCap
+	if seqLen < 1 {
+		seqLen = 1
+	}
 	scaler, _ := LoadScaler(scalerPath)
 	return &Forecaster{
 		scaler:    scaler,
 		bufferCap: bufferCap,
-		seqLen:    10,
+		seqLen:    seqLen,
 		buffer:    make([]inference.StateSnapshot, 0, bufferCap),
 	}, nil
+}
+
+// IsModelLoaded reports whether the ONNX sequence model is loaded (always false in non-CGO builds).
+func (f *Forecaster) IsModelLoaded() bool {
+	return false
 }
 
 // Close is a no-op in non-CGO builds.

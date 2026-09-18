@@ -585,7 +585,7 @@
         <!-- END: Main Telemetry & Events Split -->
 
         <!-- BEGIN: PredictiveIntelligenceCard (Version 5) -->
-        <section class="bg-white border border-zinc-200 shadow-sm rounded-xl p-5 mb-6" data-purpose="predictive-defense-card">
+        <section class="hidden bg-white border border-zinc-200 shadow-sm rounded-xl p-5 mb-6" data-purpose="predictive-defense-card">
           <div class="flex flex-col lg:flex-row lg:items-center justify-between pb-4 border-b border-zinc-100 gap-3">
             <div class="flex items-center gap-3">
               <div class="p-2 rounded-lg bg-sky-50 border border-sky-200 text-sky-600">
@@ -978,6 +978,10 @@
 
       // ── Predictive Defense (V5) ──
       const fc = data.forecast || {};
+      const forecastCard = document.querySelector('[data-purpose="predictive-defense-card"]');
+      if (forecastCard) {
+        forecastCard.classList.toggle('hidden', !fc.enabled);
+      }
       if (fc.enabled) {
         setText('[data-purpose="forecast-model-badge"]', fc.model_name || 'Transformer V5');
         setText('[data-purpose="forecast-justification"]', fc.justification || 'Proactive defense monitoring active.');
@@ -1020,10 +1024,15 @@
         }
 
         const mitreContainer = document.querySelector('[data-purpose="forecast-mitre-tags"]');
-        if (mitreContainer && fc.mitre_techniques && fc.mitre_techniques.length > 0) {
-          mitreContainer.innerHTML = fc.mitre_techniques.map(t => 
-            `<span class="px-1.5 py-0.5 rounded text-[10px] bg-sky-50 text-sky-700 border border-sky-200 font-mono">${escapeHtml(t)}</span>`
-          ).join('');
+        if (mitreContainer) {
+          const techniques = fc.mitre_techniques || [];
+          if (techniques.length > 0) {
+            mitreContainer.innerHTML = techniques.map(t => 
+              `<span class="px-1.5 py-0.5 rounded text-[10px] bg-sky-50 text-sky-700 border border-sky-200 font-mono">${escapeHtml(t)}</span>`
+            ).join('');
+          } else {
+            mitreContainer.innerHTML = '<span class="px-1.5 py-0.5 rounded text-[10px] bg-zinc-100 text-zinc-500 border border-zinc-200 font-mono">None</span>';
+          }
         }
       }
 

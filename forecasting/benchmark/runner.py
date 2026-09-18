@@ -461,12 +461,24 @@ class BenchmarkRunner:
         lines.extend([""])
 
         if selected_model:
+            selected_lower = selected_model.lower()
+            if "transformer" in selected_lower or "lstm" in selected_lower:
+                deployment_note = (
+                    f"The **{selected_model}** achieved the highest composite operational score "
+                    f"among all qualifying candidates and is recommended for ONNX export and "
+                    f"production deployment in the Go reverse proxy."
+                )
+            else:
+                deployment_note = (
+                    f"The **{selected_model}** achieved the highest composite operational score "
+                    f"among all qualifying candidates and is recommended for production deployment "
+                    f"via native Go matrix/transition tables (statistical model; neural ONNX export not applicable)."
+                )
+
             lines.extend([
                 f"### 🏆 Selected Production Model: **{selected_model}**",
                 "",
-                f"The **{selected_model}** achieved the highest composite operational score "
-                f"among all qualifying candidates and is recommended for ONNX export and "
-                f"production deployment in the Go reverse proxy.",
+                deployment_note,
             ])
         else:
             lines.extend([
@@ -547,8 +559,25 @@ class BenchmarkRunner:
             name_a, res_a = sorted_results[0]
             name_b, res_b = sorted_results[1]
             if res_a.lead_time_results and res_b.lead_time_results:
-                times_a = [d.lead_time_seconds for d in res_a.lead_time_results.detections if d.detected]
-                times_b = [d.lead_time_seconds for d in res_b.lead_time_results.detections if d.detected]
+                # Pair detections by episode to ensure paired Wilcoxon comparisons align
+                det_map_a = {
+                    (d.episode.sequence_idx, d.episode.onset_idx): d
+                    for d in res_a.lead_time_results.detections
+                }
+                det_map_b = {
+                    (d.episode.sequence_idx, d.episode.onset_idx): d
+                    for d in res_b.lead_time_results.detections
+                }
+
+                times_a, times_b = [], []
+                for ep_key, da in det_map_a.items():
+                    if ep_key in det_map_b:
+                        db = det_map_b[ep_key]
+                        # Preserve shared detected episodes for paired Wilcoxon comparison
+                        if da.detected and db.detected:
+                            times_a.append(da.lead_time_seconds)
+                            times_b.append(db.lead_time_seconds)
+
                 if times_a and times_b:
                     stat_result = LeadTimeEvaluator.statistical_comparison(
                         times_a, times_b, name_a, name_b

@@ -85,18 +85,25 @@ func (ra *RiskAdvisor) GetForecastSnapshot() monitoring.ForecastSnapshot {
 	if advisory == nil {
 		return monitoring.ForecastSnapshot{
 			Enabled:     false,
+			ModelName:   "None",
 			ThreatLevel: "NORMAL",
 			LastUpdated: time.Now(),
 		}
 	}
 
-	modelName := "Transformer Forecaster (ONNX)"
-	if ra.forecaster == nil {
-		modelName = "None"
+	enabled := false
+	modelName := "None"
+	if ra.forecaster != nil {
+		enabled = true
+		if ra.forecaster.IsModelLoaded() {
+			modelName = "Transformer Forecaster (ONNX)"
+		} else {
+			modelName = "Heuristic Forecaster"
+		}
 	}
 
 	return monitoring.ForecastSnapshot{
-		Enabled:         true,
+		Enabled:         enabled,
 		ModelName:       modelName,
 		ThreatLevel:     advisory.ThreatLevel,
 		Predictions:     advisory.ForecastStages,
@@ -131,10 +138,9 @@ func (ra *RiskAdvisor) getOrRefreshForecast() (ForecastResult, error) {
 	}
 
 	fc, err := ra.forecaster.Predict()
-	if err == nil {
-		ra.cachedForecast = &fc
-		ra.lastForecast = time.Now()
-	}
+	// Always cache the returned forecast (including heuristic fallback) and timestamp
+	ra.cachedForecast = &fc
+	ra.lastForecast = time.Now()
 	return fc, err
 }
 
@@ -165,11 +171,6 @@ func (ra *RiskAdvisor) Assess(currentScore float64, baseAction decision.Action) 
 	}
 
 	fc, err := ra.getOrRefreshForecast()
-	if err != nil {
-		advisory.Justification = fmt.Sprintf("Graceful degradation: forecaster unavailable (%v).", err)
-		ra.updateCached(advisory)
-		return advisory
-	}
 
 	advisory.ForecastStages = fc.PredictedStages
 	advisory.ForecastConf = fc.Confidences
@@ -225,6 +226,10 @@ func (ra *RiskAdvisor) Assess(currentScore float64, baseAction decision.Action) 
 	} else {
 		advisory.ThreatLevel = "NORMAL"
 		advisory.Justification = "Traffic characteristics align with normal operating profile."
+	}
+
+	if err != nil {
+		advisory.Justification = fmt.Sprintf("Forecaster error (%v); using fallback heuristic: %s", err, advisory.Justification)
 	}
 
 	// ─── Monotonic Upgrade Guarantee ──────────────────────────────────────────────

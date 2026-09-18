@@ -107,10 +107,10 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 	cacheStop := lruCache.StartTTLManager(30 * time.Second)
 	cacheMiddleware := cachesystem.NewCacheMiddleware(lruCache, cfg.CacheTTL, 1<<20)
 
-	// Version 5: Initialize Forecaster and RiskAdvisor if configured
+	// Version 5: Initialize Forecaster and RiskAdvisor if configured and preemptive defense is enabled
 	var forecaster *forecasting.Forecaster
 	var riskAdvisor *forecasting.RiskAdvisor
-	if cfg.ForecastModelPath != "" {
+	if cfg.PreemptiveDefenseEnabled && cfg.ForecastModelPath != "" {
 		fc, err := forecasting.NewForecaster(cfg.ForecastModelPath, cfg.ForecastScalerPath, cfg.ForecastWindowSize)
 		if err != nil {
 			log.Printf("[setup] Warning: failed to initialize Forecaster: %v", err)
