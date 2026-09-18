@@ -61,6 +61,12 @@ type Config struct {
 	StateLogPath       string // Path to state telemetry JSONL file
 	StateLogBufferSize int    // Write buffer size in bytes for state telemetry
 
+	// Predictive Defense (V5)
+	ForecastModelPath        string // Path to the ONNX forecast model file
+	ForecastScalerPath       string // Path to normalization scaler params JSON
+	ForecastWindowSize       int    // Number of past states in sliding window (default: 30)
+	PreemptiveDefenseEnabled bool   // Enable forecast-based preemptive mitigation
+
 	// ML Inference settings
 	ONNXSharedLibraryPath string // Path to the downloaded ONNX Runtime shared library (.so, .dll, .dylib)
 	ModelPath             string // Path to the ONNX anomaly model file
@@ -148,6 +154,12 @@ func Load() *Config {
 		ForecastingEnabled: envOrDefaultBool("TURBOSH_FORECASTING_ENABLED", false),
 		StateLogPath:       envOrDefault("TURBOSH_STATE_LOG_PATH", "logs/state_telemetry.jsonl"),
 		StateLogBufferSize: envOrDefaultInt("TURBOSH_STATE_LOG_BUFFER_SIZE", 4096),
+
+		// Predictive Defense (V5)
+		ForecastModelPath:        envOrDefault("TURBOSH_FORECAST_MODEL_PATH", "models/forecasting/forecast_transformer.onnx"),
+		ForecastScalerPath:       envOrDefault("TURBOSH_FORECAST_SCALER_PATH", "models/forecasting/scaler.json"),
+		ForecastWindowSize:       envOrDefaultInt("TURBOSH_FORECAST_WINDOW", 30),
+		PreemptiveDefenseEnabled: envOrDefaultBool("TURBOSH_PREEMPTIVE_DEFENSE", false),
 
 		// ML Inference
 		ONNXSharedLibraryPath: envOrDefault("TURBOSH_ONNX_LIB_PATH", ""),

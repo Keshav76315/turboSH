@@ -41,6 +41,25 @@ type DashboardState struct {
 	scheduler SchedulerStats
 	cache     CacheStats
 	config    ConfigSnapshot
+	forecast  ForecastProvider
+}
+
+// ForecastProvider provides read access to predictive intelligence.
+type ForecastProvider interface {
+	GetForecastSnapshot() ForecastSnapshot
+}
+
+// ForecastSnapshot holds predictive intelligence telemetry for dashboard clients.
+type ForecastSnapshot struct {
+	Enabled         bool       `json:"enabled"`
+	ModelName       string     `json:"model_name"`
+	ThreatLevel     string     `json:"threat_level"`     // "NORMAL", "ELEVATED", "HIGH", "CRITICAL"
+	Predictions     [3]string  `json:"predictions"`      // t+1, t+2, t+3 stage labels
+	Confidences     [3]float64 `json:"confidences"`      // confidences per step
+	LeadTimeSec     int        `json:"lead_time_seconds"`
+	MITRETechniques []string   `json:"mitre_techniques"`
+	Justification   string     `json:"justification"`
+	LastUpdated     time.Time  `json:"last_updated"`
 }
 
 // SchedulerStats provides read access to scheduler state.
@@ -102,6 +121,7 @@ type StatusSnapshot struct {
 	Cache     CacheSnapshot     `json:"cache"`
 	Requests  RequestSnapshot   `json:"requests"`
 	ML        MLSnapshot        `json:"ml"`
+	Forecast  ForecastSnapshot  `json:"forecast"`
 
 	RateLimiter RateLimiterSnapshot `json:"rate_limiter"`
 	Events      []MitigationEvent   `json:"recent_events"`
@@ -181,6 +201,11 @@ func (ds *DashboardState) SetCache(c CacheStats) {
 // SetConfig sets the static config snapshot.
 func (ds *DashboardState) SetConfig(cfg ConfigSnapshot) {
 	ds.config = cfg
+}
+
+// SetForecastProvider attaches the predictive intelligence provider.
+func (ds *DashboardState) SetForecastProvider(fp ForecastProvider) {
+	ds.forecast = fp
 }
 
 // RecordRequest records an incoming request with its status code and latency.
@@ -340,6 +365,17 @@ func (ds *DashboardState) Snapshot() StatusSnapshot {
 	snap.RateLimiter = RateLimiterSnapshot{
 		CapacityPerIP: ds.config.RateLimitCapacity,
 		RefillRate:    ds.config.RateLimitRate,
+	}
+
+	// Predictive Intelligence (V5)
+	if ds.forecast != nil {
+		snap.Forecast = ds.forecast.GetForecastSnapshot()
+	} else {
+		snap.Forecast = ForecastSnapshot{
+			Enabled:     false,
+			ThreatLevel: "NORMAL",
+			LastUpdated: time.Now(),
+		}
 	}
 
 	// Recent events (reverse chronological)

@@ -27,6 +27,11 @@ type requestRecord struct {
 	Endpoint  string
 }
 
+// StateConsumer consumes traffic state snapshots in real time.
+type StateConsumer interface {
+	AddState(snap StateSnapshot)
+}
+
 // MLProtection encapsulates the inference engine, decision engine,
 // and moving windows needed to compute live features.
 type MLProtection struct {
@@ -42,6 +47,7 @@ type MLProtection struct {
 	window60s time.Duration
 
 	stateExporter *StateExporter
+	stateConsumer StateConsumer
 	cfg           *config.Config
 	mu            sync.Mutex
 }
@@ -302,20 +308,24 @@ func (mlp *MLProtection) Middleware() gin.HandlerFunc {
 
 		action := mlp.decisionEngine.Evaluate(prediction)
 
-		// 3.5 Export state snapshot for forecasting pipeline (async, non-blocking)
+		// 3.5 Export and consume state snapshot for forecasting pipeline (async, non-blocking)
+		snapshot := StateSnapshot{
+			Timestamp:        time.Now().UTC(),
+			IPHash:           ipHash,
+			RequestsPerIP10s: features.RequestsPerIP10s,
+			RequestsPerIP60s: features.RequestsPerIP60s,
+			EndpointEntropy:  features.EndpointEntropy,
+			LatencySpike:     features.LatencySpike,
+			ErrorRate:        features.ErrorRate,
+			RequestVariance:  features.RequestVariance,
+			AnomalyScore:     score,
+			Action:           action.String(),
+		}
 		if mlp.stateExporter != nil {
-			mlp.stateExporter.ExportSnapshot(StateSnapshot{
-				Timestamp:        time.Now().UTC(),
-				IPHash:           ipHash,
-				RequestsPerIP10s: features.RequestsPerIP10s,
-				RequestsPerIP60s: features.RequestsPerIP60s,
-				EndpointEntropy:  features.EndpointEntropy,
-				LatencySpike:     features.LatencySpike,
-				ErrorRate:        features.ErrorRate,
-				RequestVariance:  features.RequestVariance,
-				AnomalyScore:     score,
-				Action:           action.String(),
-			})
+			mlp.stateExporter.ExportSnapshot(snapshot)
+		}
+		if mlp.stateConsumer != nil {
+			mlp.stateConsumer.AddState(snapshot)
 		}
 
 		// 4. Enforce Action
@@ -347,6 +357,16 @@ func (mlp *MLProtection) Middleware() gin.HandlerFunc {
 			c.Next()
 		}
 	}
+}
+
+// SetStateConsumer registers an active state consumer (e.g., Forecaster).
+func (m *MLProtection) SetStateConsumer(sc StateConsumer) {
+	if m == nil {
+		return
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.stateConsumer = sc
 }
 
 // SetStateExporter allows configuring or replacing the StateExporter (e.g., in tests).

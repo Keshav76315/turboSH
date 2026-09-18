@@ -109,3 +109,46 @@ func TestAction_String(t *testing.T) {
 		t.Errorf("Expected UNKNOWN, got %s", decision.Action(999).String())
 	}
 }
+
+type mockAssessor struct {
+	recommended decision.Action
+}
+
+func (m *mockAssessor) AssessAction(currentScore float64, baseAction decision.Action) decision.Action {
+	return m.recommended
+}
+
+func TestForecastAwarePolicy(t *testing.T) {
+	base := decision.NewDefaultThresholdPolicy() // 0.85 block, 0.65 rate limit
+
+	// Case 1: Base gives ALLOW (score 0.2), Assessor recommends RATE_LIMIT -> Upgrade to RATE_LIMIT
+	assessor := &mockAssessor{recommended: decision.ActionRateLimit}
+	fap := decision.NewForecastAwarePolicy(base, assessor)
+
+	act := fap.Evaluate(decision.Prediction{AnomalyScore: 0.20})
+	if act != decision.ActionRateLimit {
+		t.Errorf("Expected upgraded ActionRateLimit, got %s", act)
+	}
+
+	// Case 2: Base gives RATE_LIMIT (score 0.75), Assessor recommends BLOCK -> Upgrade to BLOCK
+	assessor.recommended = decision.ActionBlock
+	act = fap.Evaluate(decision.Prediction{AnomalyScore: 0.75})
+	if act != decision.ActionBlock {
+		t.Errorf("Expected upgraded ActionBlock, got %s", act)
+	}
+
+	// Case 3: Invariant: Base gives BLOCK (score 0.95), Assessor recommends ALLOW -> MUST NOT downgrade
+	assessor.recommended = decision.ActionAllow
+	act = fap.Evaluate(decision.Prediction{AnomalyScore: 0.95})
+	if act != decision.ActionBlock {
+		t.Errorf("VIOLATION: Policy downgraded base ActionBlock to %s", act)
+	}
+
+	// Case 4: Nil assessor behaves identically to base policy
+	fapNil := decision.NewForecastAwarePolicy(base, nil)
+	actNil := fapNil.Evaluate(decision.Prediction{AnomalyScore: 0.75})
+	if actNil != decision.ActionRateLimit {
+		t.Errorf("Expected base ActionRateLimit with nil assessor, got %s", actNil)
+	}
+}
+

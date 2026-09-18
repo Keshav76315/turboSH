@@ -16,6 +16,7 @@ scipy>=1.10.0
 torch>=2.0.0
 # ONNX export
 onnx>=1.14.0
+onnxscript>=0.1.0
 skl2onnx>=1.15.0
 
 # --- Visualization & Analysis ---

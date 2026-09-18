@@ -89,3 +89,44 @@ type PassthroughPolicy struct{}
 func (pp *PassthroughPolicy) Evaluate(_ Prediction) Action {
 	return ActionAllow
 }
+
+// RiskAssessor evaluates forward-looking risk to recommend preemptive action upgrades.
+type RiskAssessor interface {
+	AssessAction(currentScore float64, baseAction Action) Action
+}
+
+// ForecastAwarePolicy wraps an underlying DecisionEngine and applies predictive action upgrades.
+type ForecastAwarePolicy struct {
+	base     DecisionEngine
+	assessor RiskAssessor
+}
+
+// NewForecastAwarePolicy creates a decision engine combining base threshold logic with predictive risk advisories.
+func NewForecastAwarePolicy(base DecisionEngine, assessor RiskAssessor) *ForecastAwarePolicy {
+	return &ForecastAwarePolicy{
+		base:     base,
+		assessor: assessor,
+	}
+}
+
+// Evaluate evaluates the base policy and upgrades the action if recommended by the assessor.
+// Crucially, it guarantees that actions are never downgraded (strictly monotonic).
+func (fap *ForecastAwarePolicy) Evaluate(prediction Prediction) Action {
+	baseAction := ActionAllow
+	if fap.base != nil {
+		baseAction = fap.base.Evaluate(prediction)
+	}
+
+	if fap.assessor == nil {
+		return baseAction
+	}
+
+	recommended := fap.assessor.AssessAction(prediction.AnomalyScore, baseAction)
+
+	// Invariant: never downgrade protection
+	if recommended > baseAction {
+		return recommended
+	}
+	return baseAction
+}
+

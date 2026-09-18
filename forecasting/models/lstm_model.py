@@ -29,6 +29,18 @@ class StepForecast:
     confidence: float
     probabilities: List[float]
 
+    @property
+    def predicted_stage(self) -> str:
+        return self.stage_name
+
+    @property
+    def probability(self) -> float:
+        return self.confidence
+
+    @property
+    def all_probabilities(self) -> List[float]:
+        return self.probabilities
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "horizon_step": self.horizon_step,
@@ -216,3 +228,6 @@ class LSTMForecaster(nn.Module):
         model.load_state_dict(checkpoint["state_dict"])
         model.eval()
         return model
+
+    save = save_weights
+    load = load_weights

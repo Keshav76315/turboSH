@@ -1,9 +1,8 @@
 """
-ONNX Model Exporter and Runtime Validation for TurboSH LSTM Forecaster.
+ONNX Model Exporter and Runtime Validation for TurboSH Transformer Forecaster.
 
-Enables seamless cross-language model deployment:
-- Exports PyTorch LSTMForecaster to standardized ONNX graph format.
-- Configures dynamic batch and sequence length axes for flexible runtime inference.
+Same export pattern as export_lstm_onnx.py:
+- Exports PyTorch TransformerForecaster to ONNX with dynamic batch/seq axes.
 - Validates numerical parity between PyTorch and ONNX Runtime.
 """
 
@@ -17,21 +16,21 @@ import onnx
 import onnxruntime as ort
 import torch
 
-from forecasting.models.lstm_model import LSTMForecaster
+from forecasting.models.transformer_model import TransformerForecaster
 
 
-def export_lstm_to_onnx(
-    model: LSTMForecaster,
+def export_transformer_to_onnx(
+    model: TransformerForecaster,
     output_path: str,
     seq_len: int = 10,
     batch_size: int = 1,
     opset_version: int = 17,
 ) -> str:
     """
-    Export PyTorch LSTMForecaster to an ONNX model file with dynamic axes.
+    Export PyTorch TransformerForecaster to an ONNX model file with dynamic axes.
 
     Args:
-        model: Trained LSTMForecaster instance.
+        model: Trained TransformerForecaster instance.
         output_path: Destination path for the .onnx file.
         seq_len: Default sequence length for dummy trace.
         batch_size: Default batch size for dummy trace.
@@ -82,7 +81,7 @@ def export_lstm_to_onnx(
 
 
 def validate_onnx_parity(
-    model: LSTMForecaster,
+    model: TransformerForecaster,
     onnx_path: str,
     seq_len: int = 10,
     batch_size: int = 2,
@@ -91,13 +90,6 @@ def validate_onnx_parity(
     """
     Verify numerical parity between PyTorch forward pass and ONNX Runtime.
 
-    Args:
-        model: PyTorch LSTMForecaster instance.
-        onnx_path: Path to exported ONNX model.
-        seq_len: Temporal window length to test.
-        batch_size: Batch size to test.
-        atol: Absolute tolerance for difference.
-
     Returns:
         Tuple of (is_parity_verified: bool, max_absolute_difference: float)
     """
@@ -105,7 +97,6 @@ def validate_onnx_parity(
     model.eval()
 
     try:
-        # Generate synthetic input
         test_input = np.random.randn(batch_size, seq_len, model.input_size).astype(np.float32)
 
         # PyTorch inference
@@ -130,32 +121,22 @@ def validate_onnx_parity(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Export TurboSH LSTM Forecaster to ONNX format."
+        description="Export TurboSH Transformer Forecaster to ONNX format."
     )
     parser.add_argument(
         "--model",
         type=str,
-        default="models/forecasting/lstm_model.pt",
+        default="models/forecasting/transformer_model.pt",
         help="Path to trained PyTorch weights (.pt)",
     )
     parser.add_argument(
         "--output",
         type=str,
-        default="models/forecasting/forecast_lstm.onnx",
+        default="models/forecasting/forecast_transformer.onnx",
         help="Path for exported ONNX model (.onnx)",
     )
-    parser.add_argument(
-        "--opset",
-        type=int,
-        default=17,
-        help="ONNX opset version",
-    )
-    parser.add_argument(
-        "--seq-len",
-        type=int,
-        default=10,
-        help="Sequence window length",
-    )
+    parser.add_argument("--opset", type=int, default=17)
+    parser.add_argument("--seq-len", type=int, default=10)
 
     args = parser.parse_args()
 
@@ -163,11 +144,11 @@ def main():
         print(f"Error: Model checkpoint not found at: {args.model}")
         sys.exit(1)
 
-    print(f"Loading PyTorch model from {args.model}...")
-    model = LSTMForecaster.load_weights(args.model)
+    print(f"Loading Transformer model from {args.model}...")
+    model = TransformerForecaster.load_weights(args.model)
 
     print(f"Exporting to ONNX at {args.output} (opset {args.opset})...")
-    export_path = export_lstm_to_onnx(
+    export_path = export_transformer_to_onnx(
         model=model,
         output_path=args.output,
         seq_len=args.seq_len,

@@ -12,6 +12,7 @@ import (
 	"github.com/Keshav76315/turboSH/config"
 	cachesystem "github.com/Keshav76315/turboSH/core/cache"
 	"github.com/Keshav76315/turboSH/core/decision"
+	"github.com/Keshav76315/turboSH/core/forecasting"
 	"github.com/Keshav76315/turboSH/core/inference"
 	"github.com/Keshav76315/turboSH/core/scheduler"
 	"github.com/Keshav76315/turboSH/core/security"
@@ -36,6 +37,8 @@ type Components struct {
 	TrafficLogger    *logging.TrafficLogger
 	MLProtection     *inference.MLProtection   // EPIC 7: ONNX inference middleware
 	DashboardState   *mon.DashboardState       // Real-time dashboard state aggregator
+	Forecaster       *forecasting.Forecaster   // Version 5: Multi-horizon forecaster
+	RiskAdvisor      *forecasting.RiskAdvisor  // Version 5: Threat fusion & preemptive defense
 }
 
 // Close gracefully stops all background cleanup goroutines, flushes loggers, and destroys ONNX resources.
@@ -65,6 +68,9 @@ func (c *Components) Close() {
 	}
 	if c.MLProtection != nil {
 		c.MLProtection.Close()
+	}
+	if c.Forecaster != nil {
+		c.Forecaster.Close()
 	}
 	inference.Destroy()
 }
@@ -101,6 +107,19 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 	cacheStop := lruCache.StartTTLManager(30 * time.Second)
 	cacheMiddleware := cachesystem.NewCacheMiddleware(lruCache, cfg.CacheTTL, 1<<20)
 
+	// Version 5: Initialize Forecaster and RiskAdvisor if configured
+	var forecaster *forecasting.Forecaster
+	var riskAdvisor *forecasting.RiskAdvisor
+	if cfg.ForecastModelPath != "" {
+		fc, err := forecasting.NewForecaster(cfg.ForecastModelPath, cfg.ForecastScalerPath, cfg.ForecastWindowSize)
+		if err != nil {
+			log.Printf("[setup] Warning: failed to initialize Forecaster: %v", err)
+		} else {
+			forecaster = fc
+			riskAdvisor = forecasting.NewRiskAdvisor(fc)
+		}
+	}
+
 	// EPIC 7: Create ML Inference Engine first so we can pass it to the logger.
 	var mlProtection *inference.MLProtection
 	var mlProtectionStop chan struct{}
@@ -113,7 +132,15 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 			if err != nil {
 				log.Printf("[setup] Error creating ThresholdPolicy: %v. Running in static-rule mode.", err)
 			} else {
-				mlProtection = inference.NewMLProtection(cfg, engine, de)
+				var finalDE decision.DecisionEngine = de
+				if cfg.PreemptiveDefenseEnabled && riskAdvisor != nil {
+					finalDE = decision.NewForecastAwarePolicy(de, riskAdvisor)
+					log.Printf("[setup] Preemptive Defense enabled: ForecastAwarePolicy active.")
+				}
+				mlProtection = inference.NewMLProtection(cfg, engine, finalDE)
+				if forecaster != nil {
+					mlProtection.SetStateConsumer(forecaster)
+				}
 				mlProtectionStop = mlProtection.StartCleanupManager(30 * time.Second)
 				mlModelLoaded = true
 			}
@@ -136,6 +163,9 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 		close(trafficRulesStop)
 		if mlProtectionStop != nil {
 			close(mlProtectionStop)
+		}
+		if forecaster != nil {
+			forecaster.Close()
 		}
 		return nil, fmt.Errorf("failed to create traffic logger: %w", err)
 	}
@@ -161,6 +191,9 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 	ds := mon.NewDashboardState()
 	ds.SetScheduler(sched)
 	ds.SetCache(cachesystem.NewDashboardAdapter(lruCache, cfg.CacheMaxMemory, cfg.CacheCapacity))
+	if riskAdvisor != nil {
+		ds.SetForecastProvider(riskAdvisor)
+	}
 	ds.SetConfig(mon.ConfigSnapshot{
 		BackendURL:         cfg.BackendURL,
 		ProxyPort:          cfg.ListenPort,
@@ -189,6 +222,8 @@ func NewComponents(cfg *config.Config) (*Components, error) {
 		TrafficLogger:    trafficLogger,
 		MLProtection:     mlProtection,
 		DashboardState:   ds,
+		Forecaster:       forecaster,
+		RiskAdvisor:      riskAdvisor,
 	}, nil
 }
 
