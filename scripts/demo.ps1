@@ -65,10 +65,10 @@ function Cleanup-Processes {
 
 # Banner
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "          🚀 turboSH Real-Time Dashboard Demo (Windows)     " -ForegroundColor Cyan
+Write-Host "          * turboSH Real-Time Dashboard Demo (Windows)     " -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
 
-# ── 1. Check for stale processes on required ports ───────────────────────
+# -- 1. Check for stale processes on required ports -----------------------
 function Test-PortAvailable {
     param([int]$Port)
     $occupied = $false
@@ -103,7 +103,7 @@ foreach ($p in @(9092, 8080, 9090)) {
 }
 
 try {
-    # ── 2. Build binaries ───────────────────────────────────────────────────
+    # -- 2. Build binaries ---------------------------------------------------
     Write-Host "[1/4] Building Windows binaries..." -ForegroundColor Cyan
 
     $dummyBin = Join-Path $BinDir "dummy_backend.exe"
@@ -114,16 +114,16 @@ try {
         Write-Host "[ERROR] Failed to compile dummy_backend." -ForegroundColor Red
         exit 1
     }
-    Write-Host "  ✔ Built bin\dummy_backend.exe" -ForegroundColor Green
+    Write-Host "  [OK] Built bin\dummy_backend.exe" -ForegroundColor Green
 
     & go build -o $turboshBin ./cmd/turbosh
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[ERROR] Failed to compile turbosh." -ForegroundColor Red
         exit 1
     }
-    Write-Host "  ✔ Built bin\turbosh.exe" -ForegroundColor Green
+    Write-Host "  [OK] Built bin\turbosh.exe" -ForegroundColor Green
 
-    # ── 3. Start Dummy Backend on :9092 ─────────────────────────────────────
+    # -- 3. Start Dummy Backend on :9092 -------------------------------------
     Write-Host "[2/4] Starting Dummy Backend on :9092..." -ForegroundColor Cyan
 
     $env:PORT = ":9092"
@@ -155,9 +155,9 @@ try {
         Write-Host "[ERROR] Dummy Backend failed to start. See logs\dummy_backend.log" -ForegroundColor Red
         exit 1
     }
-    Write-Host "  ✔ Dummy Backend is listening on http://localhost:9092" -ForegroundColor Green
+    Write-Host "  [OK] Dummy Backend is listening on http://localhost:9092" -ForegroundColor Green
 
-    # ── 4. Start turboSH Proxy on :8080 ─────────────────────────────────────
+    # -- 4. Start turboSH Proxy on :8080 -------------------------------------
     Write-Host "[3/4] Starting turboSH Proxy (:8080 -> :9092, metrics/dashboard :9090)..." -ForegroundColor Cyan
 
     $turboshLog = Join-Path $LogDir "turbosh.log"
@@ -198,12 +198,12 @@ try {
         exit 1
     }
 
-    Write-Host "  ✔ turboSH Proxy is listening on http://localhost:8080" -ForegroundColor Green
-    Write-Host "  ✔ Real-Time Status API on   http://localhost:9090/api/v1/status" -ForegroundColor Green
-    Write-Host "  ✔ Monitoring Dashboard on  http://localhost:9090/dashboard" -ForegroundColor Green
-    Write-Host "  ✔ Light Monitoring UI on   http://localhost:9090/dashboard/light" -ForegroundColor Green
+    Write-Host "  [OK] turboSH Proxy is listening on http://localhost:8080" -ForegroundColor Green
+    Write-Host "  [OK] Real-Time Status API on   http://localhost:9090/api/v1/status" -ForegroundColor Green
+    Write-Host "  [OK] Monitoring Dashboard on  http://localhost:9090/dashboard" -ForegroundColor Green
+    Write-Host "  [OK] Light Monitoring UI on   http://localhost:9090/dashboard/light" -ForegroundColor Green
 
-    # ── 5. Open browser ──────────────────────────────────────────────────────
+    # -- 5. Open browser ------------------------------------------------------
     $dashboardUrl = if ($Light) { "http://localhost:9090/dashboard/light" } else { "http://localhost:9090/dashboard" }
 
     if (-not $NoBrowser) {
@@ -215,13 +215,13 @@ try {
 
     Write-Host ""
     Write-Host "============================================================" -ForegroundColor Green
-    Write-Host "  ✨ DEMO RUNNING — LIVE TRAFFIC SIMULATION ACTIVE          " -ForegroundColor Green
+    Write-Host "  * DEMO RUNNING - LIVE TRAFFIC SIMULATION ACTIVE          " -ForegroundColor Green
     Write-Host "============================================================" -ForegroundColor Green
     Write-Host "Watch the browser dashboard at: $dashboardUrl" -ForegroundColor Cyan
     Write-Host "Press Ctrl+C to terminate demo." -ForegroundColor Yellow
     Write-Host ""
 
-    # ── 6. Traffic Generator Loop ───────────────────────────────────────────
+    # -- 6. Traffic Generator Loop -------------------------------------------
     $endpoints = @(
         "/api/users",
         "/api/products",
@@ -270,7 +270,7 @@ try {
 
         # Burst simulation every 3 cycles
         if ($cycle % 3 -eq 0) {
-            Write-Host "  ⚡ SIMULATING HIGH-VOLUME BURST ($totalSent total reqs) -> $concurrentBurst concurrent hits on /api/login ..." -ForegroundColor Yellow
+            Write-Host "  [BURST] SIMULATING HIGH-VOLUME BURST ($totalSent total reqs) -> $concurrentBurst concurrent hits on /api/login ..." -ForegroundColor Yellow
             $burstTasks = New-Object 'System.Collections.Generic.List[System.Threading.Tasks.Task]'
             for ($b = 0; $b -lt $concurrentBurst; $b++) {
                 $burstTasks.Add($httpClient.GetAsync("http://localhost:8080/api/login"))
@@ -279,7 +279,7 @@ try {
             try {
                 [System.Threading.Tasks.Task]::WaitAll($burstTasks.ToArray(), 2000) | Out-Null
             } catch {}
-            Write-Host "  ✔ High-volume burst finished. Dashboard should now show elevated RPS and threat counters." -ForegroundColor Magenta
+            Write-Host "  [OK] High-volume burst finished. Dashboard should now show elevated RPS and threat counters." -ForegroundColor Magenta
         }
 
         # Query latest status snapshot and print live summary
@@ -292,7 +292,7 @@ try {
             $hitRate = if ($stats.cache.hit_rate -ne $null) { ("{0:P1}" -f [double]$stats.cache.hit_rate) } else { "0%" }
             $active = $stats.scheduler.active
 
-            Write-Host "  ── LIVE STATS ── Throughput: $rps req/s | Cache Hits: $hits / Misses: $misses (Hit Rate: $hitRate) | Sched Active: $active" -ForegroundColor Cyan
+            Write-Host "  -- LIVE STATS -- Throughput: $rps req/s | Cache Hits: $hits / Misses: $misses (Hit Rate: $hitRate) | Sched Active: $active" -ForegroundColor Cyan
         } catch {
             # Ignore transient reporting hiccups
         }
